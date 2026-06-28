@@ -33,14 +33,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Scraping the corpus (YouTube / TikTok / Reddit). ocrmac is macOS-only; on other
-# platforms swap in easyocr behind the same consensus interface.
+# Scraping the corpus (YouTube / TikTok / Reddit). YouTube + Reddit need only
+# yt-dlp; TikTok discovery uses a stealth browser (patchright today — see
+# docs/02-scraping-with-camoufox.md for the recommended Camoufox migration).
+# ocrmac is macOS-only; on other platforms swap in easyocr behind the same
+# consensus interface.
 scrape = [
     "yt-dlp>=2024.0",
-    "camoufox>=0.4.11",
-    "playwright==1.51.0",
+    "patchright>=1.40",
     "ocrmac>=1.0; sys_platform == 'darwin'",
 ]
+# Optional cloud-GPU batch jobs (Modal). Not needed for local use.
+cloud = ["modal>=0.64"]
 # Local web upload app.
 web = [
     "fastapi>=0.110",

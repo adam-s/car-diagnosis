@@ -1,0 +1,259 @@
+### cardiag live inference proof — Sun Jun 28 12:08:56 EDT 2026
+### device: mps
+### model: data/training/best_model_clap.joblib (real, trained on the full corpus)
+
+=== diagnose proofs/tt_6884559317735886086_b00.wav ===
+{
+ "file": "proofs/tt_6884559317735886086_b00.wav",
+ "verdict": "fault",
+ "fault_probability": 0.91,
+ "engine_knock_probability": 0.271,
+ "causes": [
+  {
+   "part": "power_steering",
+   "p": 0.288,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "accessories",
+   "p": 0.22,
+   "note": "alternator / starter / battery / A-C"
+  },
+  {
+   "part": "belt",
+   "p": 0.18,
+   "note": "serpentine/accessory belt or tensioner"
+  }
+ ],
+ "segments": [
+  {
+   "start": 0.06,
+   "end": 3.0,
+   "speech_coverage": 0.0,
+   "flatness": 0.0001,
+   "duration": 2.94
+  }
+ ],
+ "note": "Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/tt_7096554280332709166_b00.wav ===
+{
+ "file": "proofs/tt_7096554280332709166_b00.wav",
+ "verdict": "normal",
+ "fault_probability": 0.393,
+ "engine_knock_probability": 0.562,
+ "causes": [
+  {
+   "part": "low_oil",
+   "p": 0.478,
+   "note": "low oil / top-end \u2014 check oil level NOW"
+  },
+  {
+   "part": "belt",
+   "p": 0.23,
+   "note": "serpentine/accessory belt or tensioner"
+  },
+  {
+   "part": "power_steering",
+   "p": 0.112,
+   "note": "power-steering pump or fluid"
+  }
+ ],
+ "segments": [],
+ "note": "Cleaning isolated no clear mechanical sound; diagnosed the whole clip. Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/tt_7107288769379847466_b00.wav ===
+{
+ "file": "proofs/tt_7107288769379847466_b00.wav",
+ "verdict": "fault",
+ "fault_probability": 0.861,
+ "engine_knock_probability": 0.441,
+ "causes": [
+  {
+   "part": "power_steering",
+   "p": 0.305,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "brakes",
+   "p": 0.269,
+   "note": "worn brake pads/rotors \u2014 inspect brakes"
+  },
+  {
+   "part": "belt",
+   "p": 0.152,
+   "note": "serpentine/accessory belt or tensioner"
+  }
+ ],
+ "segments": [],
+ "note": "Cleaning isolated no clear mechanical sound; diagnosed the whole clip. Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/tt_7143004092946779438_b00.wav ===
+{
+ "file": "proofs/tt_7143004092946779438_b00.wav",
+ "verdict": "fault",
+ "fault_probability": 0.717,
+ "engine_knock_probability": 0.33,
+ "causes": [
+  {
+   "part": "power_steering",
+   "p": 0.45,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "belt",
+   "p": 0.239,
+   "note": "serpentine/accessory belt or tensioner"
+  },
+  {
+   "part": "fuel_ignition",
+   "p": 0.127,
+   "note": "ignition or fuel delivery (hard start)"
+  }
+ ],
+ "segments": [
+  {
+   "start": 0.3,
+   "end": 1.95,
+   "speech_coverage": 0.0,
+   "flatness": 0.0005,
+   "duration": 1.65
+  }
+ ],
+ "note": "Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/yt___1rEfDW4So_clip_00.wav ===
+{
+ "file": "proofs/yt___1rEfDW4So_clip_00.wav",
+ "verdict": "fault",
+ "fault_probability": 0.951,
+ "engine_knock_probability": 0.788,
+ "causes": [
+  {
+   "part": "low_oil",
+   "p": 0.394,
+   "note": "low oil / top-end \u2014 check oil level NOW"
+  },
+  {
+   "part": "power_steering",
+   "p": 0.169,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "belt",
+   "p": 0.167,
+   "note": "serpentine/accessory belt or tensioner"
+  }
+ ],
+ "segments": [
+  {
+   "start": 12.99,
+   "end": 14.25,
+   "speech_coverage": 0.0,
+   "flatness": 0.0094,
+   "duration": 1.26
+  },
+  {
+   "start": 14.79,
+   "end": 15.84,
+   "speech_coverage": 0.0,
+   "flatness": 0.0096,
+   "duration": 1.05
+  }
+ ],
+ "note": "Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/yt__0eu9zQiTig_clip_00.wav ===
+{
+ "file": "proofs/yt__0eu9zQiTig_clip_00.wav",
+ "verdict": "fault",
+ "fault_probability": 0.699,
+ "engine_knock_probability": 0.597,
+ "causes": [
+  {
+   "part": "power_steering",
+   "p": 0.289,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "low_oil",
+   "p": 0.212,
+   "note": "low oil / top-end \u2014 check oil level NOW"
+  },
+  {
+   "part": "belt",
+   "p": 0.177,
+   "note": "serpentine/accessory belt or tensioner"
+  }
+ ],
+ "segments": [],
+ "note": "Cleaning isolated no clear mechanical sound; diagnosed the whole clip. Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+=== diagnose proofs/yt__4hoocTHdyo_clip_01.wav ===
+{
+ "file": "proofs/yt__4hoocTHdyo_clip_01.wav",
+ "verdict": "normal",
+ "fault_probability": 0.397,
+ "engine_knock_probability": 0.196,
+ "causes": [
+  {
+   "part": "fuel_ignition",
+   "p": 0.535,
+   "note": "ignition or fuel delivery (hard start)"
+  },
+  {
+   "part": "power_steering",
+   "p": 0.185,
+   "note": "power-steering pump or fluid"
+  },
+  {
+   "part": "belt",
+   "p": 0.117,
+   "note": "serpentine/accessory belt or tensioner"
+  }
+ ],
+ "segments": [],
+ "note": "Cleaning isolated no clear mechanical sound; diagnosed the whole clip. Fine cause from sound alone is uncertain; treat as triage, not a final diagnosis."
+}
+
+### triage proof
+{
+ "file": "proofs/yt___1rEfDW4So_clip_00.wav",
+ "triage": "chassis",
+ "label": "RUNNING GEAR \u2014 wheels / suspension / driveline (wheel-bearing hum, CV-joint click, suspension clunk).",
+ "confidence": 1.0,
+ "band": "high",
+ "band_gloss": "~90% of similar held-out cases were correct",
+ "probabilities": {
+  "chassis": 1.0,
+  "engine": 0.0
+ },
+ "next_step": "Note when it happens \u2014 over bumps, while turning, or rising with road speed \u2014 to localize wheel vs suspension vs driveline."
+}
+
+### clean-only proof (no model)
+{
+ "file": "proofs/tt_6884559317735886086_b00.wav",
+ "total_seconds": 3.03,
+ "kept_seconds": 2.94,
+ "speech_fraction": 0.0,
+ "music_probability": 0.059,
+ "is_music": false,
+ "is_empty": false,
+ "segments": [
+  {
+   "start": 0.06,
+   "end": 3.0,
+   "speech_coverage": 0.0,
+   "flatness": 0.0001,
+   "duration": 2.94
+  }
+ ]
+}
+### PROOF_DONE rc=0

@@ -38,6 +38,16 @@ def _proba(clf, x) -> dict:
     return dict(zip(clf.classes_, clf.predict_proba([x])[0]))
 
 
+_SENTINELS = {"unknown", "none", "nan", ""}
+
+
+def _usable(head) -> bool:
+    """A head carries information only if it has >=2 real (non-placeholder) classes."""
+    classes = [str(c).lower() for c in getattr(head, "classes_", [])]
+    real = [c for c in classes if c not in _SENTINELS]
+    return len(real) >= 2
+
+
 class Classifier:
     """Bundle of the three trained heads. Construct via :meth:`load`."""
 
@@ -56,7 +66,17 @@ class Classifier:
                 f"  → or point --model / CARDIAG_DATA at an existing "
                 f"best_model_clap.joblib."
             )
-        return cls(joblib.load(path)["heads"])
+        try:
+            art = joblib.load(path)
+            heads = art["heads"]
+            assert {"kind", "knock", "cause"} <= set(heads)
+        except Exception as e:
+            raise ValueError(
+                f"{path} is not a valid cardiag diagnosis model "
+                f"(expected a joblib dict with a 'heads' map of kind/knock/cause). "
+                f"Train one with `cardiag train --fixtures`. [{type(e).__name__}]"
+            ) from None
+        return cls(heads)
 
     def _embed(self, path, *, clean_audio: bool):
         """Clean the clip then embed the isolated mechanical audio. Falls back to
@@ -75,25 +95,46 @@ class Classifier:
         return embed_windows(path), segments, res_for_note
 
     def diagnose(self, path, *, clean_audio: bool = True) -> Diagnosis:
-        """Diagnose ``path``: clean -> embed -> heads -> :class:`Diagnosis`."""
+        """Diagnose ``path``: clean -> embed -> heads -> :class:`Diagnosis`.
+
+        Honest about degenerate heads: a head trained on a single class (or on a
+        placeholder label) carries no information, so we never present its output
+        as a confident verdict/cause — we downgrade to UNCERTAIN and say so.
+        """
         x, segments, res = self._embed(path, clean_audio=clean_audio)
+        notes = []
 
-        p_fault = float(_proba(self.heads["kind"], x).get("fault", 0.0))
-        p_knock = float(_proba(self.heads["knock"], x).get("knock", 0.0))
-        cause = _proba(self.heads["cause"], x)
-        topk = sorted(cause.items(), key=lambda kv: -kv[1])[:3]
+        # --- fault/normal -----------------------------------------------------
+        if _usable(self.heads["kind"]):
+            p_fault = float(_proba(self.heads["kind"], x).get("fault", 0.0))
+            verdict = (Verdict.FAULT if p_fault >= _FAULT_HI else
+                       Verdict.NORMAL if p_fault <= _FAULT_LO else Verdict.UNCERTAIN)
+        else:
+            p_fault, verdict = 0.0, Verdict.UNCERTAIN
+            notes.append("fault/normal head was trained on a single class — verdict "
+                         "is not meaningful (scrape both fault and normal clips).")
 
-        verdict = (Verdict.FAULT if p_fault >= _FAULT_HI else
-                   Verdict.NORMAL if p_fault <= _FAULT_LO else Verdict.UNCERTAIN)
-        causes = [Cause(part=k, p=round(float(v), 3), note=CAUSE_HELP.get(k, ""))
-                  for k, v in topk]
+        # --- engine knock -----------------------------------------------------
+        knock_classes = set(getattr(self.heads["knock"], "classes_", []))
+        p_knock = (float(_proba(self.heads["knock"], x).get("knock", 0.0))
+                   if "knock" in knock_classes else 0.0)
 
-        note = Diagnosis.note
+        # --- cause ------------------------------------------------------------
+        if _usable(self.heads["cause"]):
+            cause = _proba(self.heads["cause"], x)
+            topk = sorted(cause.items(), key=lambda kv: -kv[1])[:3]
+            causes = [Cause(part=k, p=round(float(v), 3), note=CAUSE_HELP.get(k, ""))
+                      for k, v in topk]
+        else:
+            causes = []
+            notes.append("cause head has too few classes to suggest a part.")
+
         if res is not None and getattr(res, "is_music", False):
-            note = "Recording looks like mostly music — diagnosis is unreliable. " + note
+            notes.append("Recording looks like mostly music — diagnosis is unreliable.")
         elif res is not None and getattr(res, "is_empty", False):
-            note = ("Cleaning isolated no clear mechanical sound; diagnosed the "
-                    "whole clip. " + note)
+            notes.append("Cleaning isolated no clear mechanical sound; diagnosed the "
+                         "whole clip.")
+        note = " ".join(notes + [Diagnosis.note])
 
         return Diagnosis(
             file=str(path),

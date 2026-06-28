@@ -64,9 +64,20 @@ class Clap:
 def embed_windows(path, sr: int = config.SR_CLAP, win_s: float = 10.0):
     """Mean CLAP embedding over up to 3 windows of a file (light TTA for
     stability). Used by inference. Returns a single L2-normalized 512-d vector."""
+    import warnings
+    from pathlib import Path
+
     import librosa
+    if not Path(path).exists():
+        raise FileNotFoundError(f"no such audio file: {path}")
     clap = Clap()
-    dur = librosa.get_duration(path=str(path))
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            dur = librosa.get_duration(path=str(path))
+    except Exception as e:
+        raise ValueError(f"could not read audio from {path} — is it a valid "
+                         f"audio file? ({type(e).__name__})") from None
     offs = [0.0] if dur <= win_s else [0.0, (dur - win_s) / 2, dur - win_s][:3]
     vecs = []
     for off in offs:

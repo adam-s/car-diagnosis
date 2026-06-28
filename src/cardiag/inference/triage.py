@@ -62,11 +62,28 @@ class TriageClassifier:
                 f"  → or point --model / CARDIAG_DATA at an existing "
                 f"triage_model.joblib."
             )
-        art = joblib.load(path)
-        return cls(art["model"], art["classes"])
+        try:
+            art = joblib.load(path)
+            return cls(art["model"], art["classes"])
+        except Exception as e:
+            raise ValueError(
+                f"{path} is not a valid cardiag triage model (expected a joblib "
+                f"dict with 'model' and 'classes'). Train one with "
+                f"`cardiag train --fixtures`. [{type(e).__name__}]"
+            ) from None
 
     def triage(self, path) -> TriageResult:
         x = embed_windows(path)
+        real = [str(c).lower() for c in self.classes
+                if str(c).lower() not in {"unknown", "none", "nan", ""}]
+        if len(real) < 2:                       # degenerate model -> don't pretend
+            return TriageResult(
+                file=str(path), triage="unknown",
+                label="model could not be trained (need engine AND running-gear "
+                      "examples in the corpus)",
+                confidence=0.0, band=Band.ABSTAIN,
+                band_gloss="triage model is degenerate — not a real call",
+                probabilities={}, next_step="")
         p = self.model.predict_proba([x])[0]
         i = int(p.argmax())
         label = str(self.classes[i])

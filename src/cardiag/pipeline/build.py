@@ -23,6 +23,7 @@ trains a real, working model from nothing — it teaches the loop by running it.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -124,11 +125,41 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap) -> 
 
 
 def _write_corpus(records, out_base: Path) -> int:
+    """Merge new records into corpus.jsonl, deduped by clip_id, written ATOMICALLY.
+
+    Critical: a scrape that yields nothing (flaky network, dead videos, blocked
+    platform) must NEVER wipe a previously-built corpus. We merge with whatever is
+    already on disk and write via a temp file + os.replace, so an interrupted or
+    zero-yield run can't truncate or corrupt the corpus. Re-running scrape is
+    therefore additive, not destructive.
+    """
     out_base.mkdir(parents=True, exist_ok=True)
-    with open(out_base / "corpus.jsonl", "w") as fh:
-        for r in records:
+    dest = out_base / "corpus.jsonl"
+    merged: dict = {}
+    if dest.exists():                                   # keep prior good data
+        for line in open(dest):
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            merged[r.get("clip_id") or len(merged)] = r
+    added = 0
+    for r in records:
+        key = r.get("clip_id") or f"_new{len(merged)}"
+        if key not in merged:
+            added += 1
+        merged[key] = r
+    if not merged:                                      # nothing old, nothing new
+        print(f"  no clips to write; left {dest} untouched")
+        return 0
+    if not records:
+        print(f"  this run added 0 clips; kept {len(merged)} existing in {dest}")
+    tmp = dest.with_suffix(".jsonl.tmp")
+    with open(tmp, "w") as fh:
+        for r in merged.values():
             fh.write(json.dumps(r) + "\n")
-    return len(records)
+    os.replace(tmp, dest)                               # atomic
+    return len(merged)
 
 
 # ==================================================================== scrapers
@@ -253,16 +284,33 @@ def scrape(platform: str, **kw) -> int:
 
 # ==================================================================== corpus
 def load_corpus() -> list[dict]:
-    """Every labeled clip across platforms that still has its wav on disk."""
+    """Every labeled clip across platforms that still has its wav on disk.
+
+    Tolerant of a corrupt corpus: a malformed JSONL line or a row missing its
+    required keys is skipped with a warning, never crashes the whole train.
+    """
     rows: list[dict] = []
+    skipped = 0
     for base in (paths.YT_DATA, paths.TT_DATA, paths.REDDIT_DATA):
         f = base / "corpus.jsonl"
         if not f.exists():
             continue
-        for line in open(f):
-            r = json.loads(line)
-            if r.get("wav") and Path(r["wav"]).exists():
+        for n, line in enumerate(open(f), 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                skipped += 1
+                continue
+            if not (r.get("wav") and r.get("clip_id")):   # required keys
+                skipped += 1
+                continue
+            if Path(r["wav"]).exists():
                 rows.append(r)
+    if skipped:
+        print(f"  load_corpus: skipped {skipped} malformed/incomplete row(s)")
     return rows
 
 
@@ -310,6 +358,7 @@ def _fit(rows, labelf, embed, min_class: int):
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
+    dim = len(next(iter(embed.values()))) if embed else 512
     data = [(embed[r["clip_id"]], labelf(r), r.get("video", r["clip_id"]))
             for r in rows if labelf(r) is not None and r["clip_id"] in embed]
     counts = Counter(lbl for _, lbl, _ in data)
@@ -317,8 +366,8 @@ def _fit(rows, labelf, embed, min_class: int):
     data = [(x, lbl, g) for x, lbl, g in data if lbl in keep]
     labels = {lbl for _, lbl, _ in data}
 
-    if len(labels) < 2:
-        X = np.array([x for x, _, _ in data]) if data else np.zeros((1, 512))
+    if len(labels) < 2:                     # not enough to learn anything
+        X = np.array([x for x, _, _ in data]) if data else np.zeros((1, dim))
         y = [lbl for _, lbl, _ in data] or [next(iter(labels), "unknown")]
         return DummyClassifier(strategy="prior").fit(X, y), {
             "degenerate": True, "classes": sorted(labels), "n": len(data)}
@@ -328,14 +377,21 @@ def _fit(rows, labelf, embed, min_class: int):
     tr = [(x, y) for x, y, g in data if g not in test_g]
     te = [(x, y) for x, y, g in data if g in test_g]
     clf = make_pipeline(StandardScaler(),
-                        LogisticRegression(max_iter=3000, class_weight="balanced"))
+                        LogisticRegression(max_iter=3000, class_weight="balanced",
+                                           random_state=0))
     clf.fit([x for x, _ in tr], [y for _, y in tr])
-    report = {"classes": sorted(labels), "n_train": len(tr), "n_test": len(te)}
+    report = {"classes": sorted(labels), "n_train": len(tr), "n_test": len(te),
+              "degenerate": False}
     if te:
         pred = clf.predict([x for x, _ in te])
         gold = [y for _, y in te]
         report["held_out_acc"] = round(float(np.mean([p == g for p, g in zip(pred, gold)])), 3)
         report["majority"] = round(max(Counter(gold).values()) / len(gold), 3)
+        # be honest when the split is too small/skewed to mean anything
+        if len(te) < 3 or set(g for _, g in tr) != set(gold):
+            report["held_out_unreliable"] = (
+                f"held-out set too small/skewed (n_test={len(te)}); "
+                f"accuracy is not a reliable estimate — scrape more clips")
     return clf, report
 
 
@@ -345,6 +401,11 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
     path. ``cause_fn(row)`` yields the cause label."""
     import joblib
 
+    def _dump(obj, dest):                    # atomic: temp + os.replace
+        tmp = Path(str(dest) + ".tmp")
+        joblib.dump(obj, tmp)
+        os.replace(tmp, dest)
+
     heads, report = {}, {}
     heads["kind"], report["kind"] = _fit(
         [r for r in rows if r.get("kind") in ("fault", "normal")],
@@ -353,12 +414,22 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
     heads["cause"], report["cause"] = _fit(
         [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class)
 
+    # refuse to ship a model where EVERY head is a constant (e.g. --min-class too
+    # high, or a single-class corpus) — that would be a silent garbage model.
+    if all(report[h].get("degenerate") for h in ("kind", "knock", "cause")):
+        raise SystemExit(
+            "every head is degenerate — the corpus has too few clips per class "
+            f"(min_class={min_class}). Scrape more (both fault and normal), or "
+            "lower --min-class. No model was written.")
     if {"fault", "normal"} - set(report["kind"].get("classes", [])):
         print("  note: only one kind class present; the fault/normal head is a "
-              "constant. Scrape YouTube (it runs normal queries) for both classes.")
+              "constant and diagnose() will return UNCERTAIN. Scrape YouTube (it "
+              "runs normal queries) for both classes.")
 
     paths.TRAIN_DATA.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"heads": heads, "emb": "clap"}, paths.MODEL_CLAP)
+    _dump({"heads": heads, "emb": "clap",
+           "degenerate": {h: report[h].get("degenerate", False)
+                          for h in ("kind", "knock", "cause")}}, paths.MODEL_CLAP)
 
     def triage_label(r):
         if r.get("kind") != "fault":
@@ -369,7 +440,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
     triage_clf, report["triage"] = _fit(rows, triage_label, embed, min_class)
     classes = list(getattr(triage_clf, "classes_",
                            report["triage"].get("classes", ["engine", "chassis"])))
-    joblib.dump({"model": triage_clf, "classes": classes}, paths.MODEL_TRIAGE)
+    _dump({"model": triage_clf, "classes": classes}, paths.MODEL_TRIAGE)
 
     (paths.TRAIN_DATA / "train_report.json").write_text(json.dumps(report, indent=2))
     print("\n=== training report ===")
@@ -411,9 +482,12 @@ def train_from_fixtures(min_class: int = 2) -> dict:
     if not npz.exists():
         raise SystemExit(f"no fixture embeddings at {npz} (rebuild with "
                          f"scripts/make_fixtures.py).")
-    z = np.load(npz, allow_pickle=True)
-    rows = [{"clip_id": str(c), "video": str(v), "kind": str(k), "l1": str(l1v),
-             "cause": str(ca)} for c, v, k, l1v, ca in
+    z = np.load(npz, allow_pickle=False)        # plain float/str arrays; no pickle
+    def _clean(s):                              # "", "None", "nan" -> "" (= missing)
+        s = str(s)
+        return "" if s.lower() in ("none", "nan") else s
+    rows = [{"clip_id": str(c), "video": str(v), "kind": _clean(k),
+             "l1": _clean(l1v), "cause": _clean(ca)} for c, v, k, l1v, ca in
             zip(z["clip_id"], z["video"], z["kind"], z["l1"], z["cause"])]
     embed = {str(c): x for c, x in zip(z["clip_id"], z["X"])}
     print(f"training offline on {len(rows)} bundled fixture embeddings…")

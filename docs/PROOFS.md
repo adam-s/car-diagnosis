@@ -1,5 +1,37 @@
 # Verification & Proofs
 
+## Fresh-clone acceptance test (git worktree, no data, no model)
+
+The headline proof: a developer who clones this with **nothing** can scrape →
+clean → train → infer. Verified in an isolated `git worktree` containing only
+committed code — no `data/`, no `.venv`, no model artifact — with a brand-new
+virtualenv installed from `pyproject.toml`:
+
+```
+[3] confirm clean slate          model exists? False
+[4] test suite                   36 passed, 3 deselected
+[5] cardiag demo (from scratch)  scrape → clean → train → diagnose → exit 0
+    ✓ loop complete: scraped, cleaned, trained, and diagnosed from scratch.
+[6] diagnose w/ freshly-trained  verdict=fault, engine_internal p=0.748
+```
+
+Captured in [`proofs/worktree_fresh_clone.log`](../proofs/worktree_fresh_clone.log).
+The suite also **skips** (not errors) when an optional extra is absent: with
+`fastapi` uninstalled the web tests report `4 passed, 3 skipped`. Reproduce:
+
+```bash
+git worktree add --detach /tmp/clone-test HEAD
+cd /tmp/clone-test && uv venv --python 3.11 && source .venv/bin/activate
+uv pip install -e ".[scrape,web,dev]"
+pytest && cardiag demo
+```
+
+The loop is self-contained — only `yt-dlp` + CLAP (no LLM, no external datasets,
+no API keys). The demo model is intentionally small (a few videos); scrape more
+(`cardiag scrape youtube --per-query 5 --max-videos 200`) for a stronger one.
+
+---
+
 This document is the honest accounting of what is tested, what was *run live*, and
 what is — by the nature of the system — not provable to 100%. It is deliberately
 candid: parts of this pipeline are deterministic and provable; parts depend on
@@ -24,13 +56,15 @@ Run `pytest` (the default deselects `live` and `e2e`).
 | `test_unit_core.py` | 13 | types/enums, config invariants, `resolve_clip`, cause canon, Reddit `media_id`/`is_video` | nothing |
 | `test_audio_cascade.py` | 6 | cascade isolates a loud span, finds nothing in silence; `clean()` on synthetic audio | silero-vad, librosa |
 | `test_inference_contract.py` | 5 | `Classifier`/`Triage` wiring, verdict thresholds, JSON round-trip | fixture model (no CLAP) |
-| `test_cli_web.py` | 7 | CLI commands + errors; web index/health/diagnose endpoint | typer, fastapi |
+| `test_cli_web.py` | 7 | CLI commands + errors; web index/health/diagnose endpoint (web tests skip if `[web]` absent) | typer, fastapi |
+| `test_build_labels.py` | 5 | from-scratch label logic (kind/knock/cause/triage) + head fitting | nothing |
 | `test_live_model.py` | 2 | **real** model + CLAP diagnoses a real clip | model + CLAP (`-m live`) |
 | `test_web_e2e.py` | 1 | **browser** upload → result renders (Playwright) | chromium (`-m e2e`) |
 
-**Last local run:** `31 passed, 3 deselected` (default) · `2 passed` (`-m live`) ·
-`1 passed` (`-m e2e`) — **34/34 green.** CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml))
-runs the default suite + the Playwright e2e on every push.
+**Last run:** `36 passed, 3 deselected` (default) · `2 passed` (`-m live`) ·
+`1 passed` (`-m e2e`) — **39/39 green**, including in the fresh worktree above. CI
+([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs the default suite +
+the Playwright e2e on every push.
 
 ## Live runs actually executed (on the author's M3, 2026-06-28)
 

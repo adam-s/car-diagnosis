@@ -37,6 +37,28 @@ def test_cli_clean_outputs_json(tone_wav):
     assert "segments" in payload and payload["is_empty"] is False
 
 
+def test_cli_inspect_bad_audio_is_clean_error(tmp_path):
+    # fuzz regression: inspect on a non-audio file -> clean message, never a traceback
+    bad = tmp_path / "x.wav"
+    bad.write_text("definitely not audio")
+    res = runner.invoke(app, ["inspect", str(bad), "--no-clap"])
+    assert res.exit_code == 1
+    assert "Traceback" not in res.stdout and "Traceback" not in (res.stderr or "")
+
+
+def test_cli_serve_invalid_model_fails_fast(tmp_path):
+    # fuzz regression: serve --model <not a model> exits before starting uvicorn
+    bad = tmp_path / "m.joblib"
+    bad.write_text("not a real model")
+    res = runner.invoke(app, ["serve", "--model", str(bad)])
+    assert res.exit_code == 1
+
+
+def test_cli_scrape_rejects_negative_counts():
+    # fuzz regression: negative caps are a usage error, not a silent slice
+    assert runner.invoke(app, ["scrape", "youtube", "--max-videos", "-5"]).exit_code == 2
+
+
 # ------------------------------------------------------------------- web
 @pytest.fixture
 def client():

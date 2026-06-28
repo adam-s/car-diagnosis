@@ -98,8 +98,19 @@ def _bars(pairs) -> str:
 
 
 def _clip_card(path, with_clap=True) -> str:
+    import warnings
+    from pathlib import Path
+
     import librosa
-    y, sr = librosa.load(str(path), sr=config.SR_CLAP, mono=True)
+    if not Path(path).exists():
+        raise FileNotFoundError(f"no such audio file: {path}")
+    try:                                       # turn library decode errors into the
+        with warnings.catch_warnings():        # friendly ValueError the CLI already catches
+            warnings.simplefilter("ignore")
+            y, sr = librosa.load(str(path), sr=config.SR_CLAP, mono=True)
+    except Exception as exc:
+        raise ValueError(f"could not read audio from {path} — is it a valid audio "
+                         f"file? ({type(exc).__name__})") from None
     res = clean(str(path), music_gate=with_clap)
     iso = res.merged_audio()
 

@@ -192,6 +192,13 @@ def serve(
             from rich.console import Console
             Console(stderr=True).print(f"[red]no model at {clap}[/red]")
             raise typer.Exit(code=1)
+        from cardiag import Classifier
+        try:                                   # fail fast at launch, not mid-request
+            Classifier.load(str(clap))
+        except (ValueError, FileNotFoundError) as e:
+            from rich.console import Console
+            Console(stderr=True).print(f"[red]{e}[/red]")
+            raise typer.Exit(code=1) from None
         os.environ["CARDIAG_MODEL"] = str(clap)
         if triage.exists():
             os.environ["CARDIAG_TRIAGE"] = str(triage)
@@ -218,9 +225,9 @@ def _missing(what: str, extra: str) -> int:
 @app.command()
 def scrape(
     platform: str = typer.Argument("youtube", help="youtube | tiktok | reddit"),
-    per_query: int = typer.Option(3, help="(youtube) videos per search query."),
-    max_videos: int = typer.Option(40, help="(youtube/tiktok) cap on videos."),
-    pages: int = typer.Option(2, help="(reddit) pages per feed."),
+    per_query: int = typer.Option(3, min=1, help="(youtube) videos per search query."),
+    max_videos: int = typer.Option(40, min=1, help="(youtube/tiktok) cap on videos."),
+    pages: int = typer.Option(2, min=1, help="(reddit) pages per feed."),
     normal: bool = typer.Option(
         False, "--normal",
         help="(tiktok) scrape HEALTHY-engine clips labeled 'normal' instead of "
@@ -317,8 +324,8 @@ def start():
 
 @app.command()
 def demo(
-    per_query: int = typer.Option(1, help="Videos per query (keep small)."),
-    max_videos: int = typer.Option(18, help="Cap on videos processed."),
+    per_query: int = typer.Option(1, min=1, help="Videos per query (keep small)."),
+    max_videos: int = typer.Option(18, min=1, help="Cap on videos processed."),
 ):
     """The whole loop from nothing: scrape -> clean -> train -> diagnose.
 

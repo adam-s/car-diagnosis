@@ -42,6 +42,27 @@ EXTERNAL = DATA / "external"
 MODEL_CLAP = TRAIN_DATA / "best_model_clap.joblib"   # kind / knock / cause heads
 MODEL_TRIAGE = TRAIN_DATA / "triage_model.joblib"    # engine vs running-gear
 
+# The optional pre-trained model that ships with the repo. If the user hasn't
+# trained their own (data/training/ is empty), we fall back to this so a fresh
+# clone can `diagnose` / `serve` immediately. An explicit --model always wins.
+SHIPPED_DIR = REPO_ROOT / "models"
+
+
+def resolve_clap() -> Path:
+    """The fault/knock/cause model to load: a user-trained one if present, else the
+    shipped one, else the (missing) default path for a clean error message."""
+    if MODEL_CLAP.exists():
+        return MODEL_CLAP
+    shipped = SHIPPED_DIR / "best_model_clap.joblib"
+    return shipped if shipped.exists() else MODEL_CLAP
+
+
+def resolve_triage() -> Path:
+    if MODEL_TRIAGE.exists():
+        return MODEL_TRIAGE
+    shipped = SHIPPED_DIR / "triage_model.joblib"
+    return shipped if shipped.exists() else MODEL_TRIAGE
+
 # --- external reference dataset roots (consumed by training/prep) ----------
 CARDIAG_DS = EXTERNAL / "car-diagnostics" / "car diagnostics dataset"
 AIMECH = EXTERNAL / "ai-mechanic" / "ML dataset" / "Audio"

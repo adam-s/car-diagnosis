@@ -29,6 +29,15 @@ MUSIC_THRESH = 0.5
 
 
 # ---------------------------------------------------------------- URL intake
+# Only these media platforms may be fetched server-side. Anything else — internal
+# hosts, cloud metadata (169.254.169.254), file://, localhost — is refused BEFORE
+# yt-dlp ever sees the URL. This is the SSRF guard for the link-paste feature.
+_ALLOWED_HOSTS = ("youtube.com", "youtu.be", "youtube-nocookie.com",
+                  "tiktok.com", "reddit.com", "redd.it", "v.redd.it")
+MAX_DL_BYTES = 60 * 1024 * 1024
+MAX_DL_SECONDS = 900                      # refuse clips longer than 15 min
+
+
 def platform_of(url: str) -> str:
     u = url.lower()
     if "tiktok" in u:
@@ -40,29 +49,57 @@ def platform_of(url: str) -> str:
     return "link"
 
 
+def _validate_url(url: str) -> None:
+    """Reject anything that isn't a public http(s) link to an allowlisted media
+    host whose name resolves only to public IPs. Defends the URL-fetch feature
+    against SSRF (internal services, metadata endpoints, file://, DNS rebinding)."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+    u = urlparse(url.strip())
+    if u.scheme not in ("http", "https"):
+        raise ValueError("only http(s) links are supported")
+    host = (u.hostname or "").lower()
+    if not host or not any(host == h or host.endswith("." + h) for h in _ALLOWED_HOSTS):
+        raise ValueError("only YouTube, TikTok, and Reddit links are supported")
+    try:
+        addrs = {res[4][0] for res in socket.getaddrinfo(host, None)}
+    except socket.gaierror:
+        raise ValueError("could not resolve that link's host") from None
+    for a in addrs:
+        ip = ipaddress.ip_address(a)
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            raise ValueError("that link resolves to a non-public address") from None
+
+
 def acquire_url(url: str, dest_dir: Path, timeout: int = 180) -> tuple[Path, str]:
-    """Download audio from a YouTube/TikTok/Reddit/other URL to a wav via yt-dlp.
-    Returns (wav_path, title). Raises ValueError on failure."""
+    """Download audio from a YouTube/TikTok/Reddit URL to a wav via yt-dlp. The URL
+    is SSRF-validated first. Returns (wav_path, title). Raises ValueError."""
     import shutil
+    _validate_url(url)
     if not shutil.which("yt-dlp"):
         raise ValueError("yt-dlp is not installed (pip install -e '.[scrape]')")
     out = dest_dir / "clip.%(ext)s"
     title = ""
     try:                                       # best-effort title for the header
         title = subprocess.run(
-            ["yt-dlp", "--no-warnings", "--get-title", "--", url],
+            ["yt-dlp", "--no-warnings", "--no-playlist", "--get-title", "--", url],
             capture_output=True, text=True, timeout=45).stdout.strip()[:140]
     except Exception:
         pass
     try:
         subprocess.run(
-            ["yt-dlp", "--no-warnings", "-f", "ba/b", "-x", "--audio-format", "wav",
+            ["yt-dlp", "--no-warnings", "--no-playlist",
+             "--max-filesize", str(MAX_DL_BYTES),
+             "--match-filter", f"duration < {MAX_DL_SECONDS} | !duration",
+             "-f", "ba/b", "-x", "--audio-format", "wav",
              "--postprocessor-args", f"-ar {config.SR_CLAP} -ac 1",
              "-o", str(out), "--", url],
             check=True, capture_output=True, timeout=timeout)
-    except subprocess.CalledProcessError as e:
-        msg = (e.stderr or b"").decode("utf8", "ignore")[-300:]
-        raise ValueError(f"could not download audio from this link ({msg.strip()})") from None
+    except subprocess.CalledProcessError:      # never echo yt-dlp stderr (SSRF exfil channel)
+        raise ValueError("could not download audio from this link (too long, private, "
+                         "or unavailable)") from None
     except subprocess.TimeoutExpired:
         raise ValueError("download timed out — try a shorter clip or upload the file") from None
     wavs = list(dest_dir.glob("clip.wav")) or list(dest_dir.glob("clip.*"))

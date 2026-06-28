@@ -17,7 +17,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from cardiag import clean
@@ -63,8 +63,35 @@ def _safe_suffix(filename: str | None) -> str:
     return suffix if suffix in _OK_SUFFIX else ".wav"
 
 
+def _finite(o):
+    """Replace non-finite floats (NaN/Inf) with None so the payload is valid JSON
+    a browser's JSON.parse won't choke on (json.dumps would otherwise emit NaN)."""
+    import math
+    if isinstance(o, float):
+        return o if math.isfinite(o) else None
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_finite(v) for v in o]
+    return o
+
+
 def _sse(event: str, payload: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(_finite(payload))}\n\n"
+
+
+def _check_origin(request) -> None:
+    """Block cross-site (CSRF) calls to the state-changing endpoints. Same-origin
+    requests omit Origin or match Host; a malicious page's fetch carries its own
+    Origin and is refused (defence-in-depth on top of the 127.0.0.1 bind)."""
+    from fastapi import HTTPException
+    origin = request.headers.get("origin")
+    if not origin:
+        return
+    host = request.headers.get("host", "")
+    netloc = origin.split("://", 1)[-1]
+    if netloc != host and not any(h in netloc for h in ("localhost", "127.0.0.1")):
+        raise HTTPException(status_code=403, detail="cross-origin request refused")
 
 
 # Small bounded cache of downloaded audio so the front end can PLAY a pasted-link
@@ -99,7 +126,7 @@ def get_audio(jid: str):
 
 
 @app.post("/api/diagnose/stream")
-async def diagnose_stream(file: UploadFile | None = File(None),
+async def diagnose_stream(request: Request, file: UploadFile | None = File(None),
                           url: str | None = Form(None)) -> StreamingResponse:
     """Stream the pipeline stage-by-stage as Server-Sent Events for the live UI.
 
@@ -107,6 +134,7 @@ async def diagnose_stream(file: UploadFile | None = File(None),
     cleaning + diagnosis stage is emitted as it completes so the front end can
     animate the timeline. Heavy work runs in Starlette's threadpool (sync
     generator) and is serialized by ``_LOCK`` (torch/MPS is not thread-safe)."""
+    _check_origin(request)
     from cardiag.web import explain
 
     workdir = tempfile.mkdtemp(prefix="cardiag_")
@@ -160,16 +188,23 @@ async def diagnose_stream(file: UploadFile | None = File(None),
                                       "X-Accel-Buffering": "no"})
 
 
+def _saliency_locked(path, model):
+    """Run the heavy occlusion saliency holding _LOCK *inside the worker thread*
+    (not across the event-loop await — that would block other requests)."""
+    from cardiag.audio import saliency
+    with _LOCK:
+        return saliency.occlusion_saliency(path, model)
+
+
 @app.post("/api/explain")
-async def explain_why(file: UploadFile | None = File(None),
+async def explain_why(request: Request, file: UploadFile | None = File(None),
                       audio_id: str | None = Form(None)) -> JSONResponse:
     """Occlusion-saliency explanation of the fault/normal verdict — *why* the model
     decided. Accepts the same clip back (an upload, or a cached ``audio_id`` from a
     pasted-link run) and returns a time×frequency importance map. Heavy (re-embeds
     a grid of masked variants), so it's a deliberate opt-in, serialized by _LOCK."""
     from starlette.concurrency import run_in_threadpool
-
-    from cardiag.audio import saliency
+    _check_origin(request)
 
     tmp = None
     try:
@@ -195,9 +230,8 @@ async def explain_why(file: UploadFile | None = File(None),
             return JSONResponse({"error": "provide a file or audio_id"}, status_code=400)
 
         model = os.environ.get("CARDIAG_MODEL")
-        with _LOCK:
-            res = await run_in_threadpool(saliency.occlusion_saliency, path, model)
-        return JSONResponse(res)
+        res = await run_in_threadpool(_saliency_locked, path, model)
+        return JSONResponse(_finite(res))
     except (ValueError, FileNotFoundError, OSError) as e:
         return JSONResponse({"error": f"could not explain: {e}"}, status_code=400)
     finally:
@@ -206,10 +240,11 @@ async def explain_why(file: UploadFile | None = File(None),
 
 
 @app.post("/diagnose")
-async def diagnose(file: UploadFile) -> JSONResponse:
+async def diagnose(request: Request, file: UploadFile) -> JSONResponse:
     """Clean the uploaded clip, then diagnose it if a model is loaded. Hardened:
     size-capped chunked read, whitelisted suffix, errors -> 400/413 (never 500),
     inference serialized (torch/MPS is not thread-safe), temp file always removed."""
+    _check_origin(request)
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=_safe_suffix(file.filename),

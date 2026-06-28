@@ -29,10 +29,11 @@
 html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body{font-family:var(--font-serif);font-size:1.0625rem;line-height:1.55;color:var(--ink);
   background:var(--bg);font-feature-settings:"kern","liga","calt"}
-.byline{position:fixed;top:20px;right:24px;font-family:var(--font-sans);font-size:.72rem;
+.byline{position:fixed;top:14px;right:16px;font-family:var(--font-sans);font-size:.72rem;
   font-weight:500;letter-spacing:.04em;color:var(--ink-subtle);text-decoration:none;
-  padding:4px 8px;border-radius:var(--radius-sm);transition:color .15s ease,background .15s ease;z-index:40}
-.byline:hover{color:var(--ink-muted);background:var(--surface)}
+  padding:4px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
+  transition:color .15s ease,background .15s ease;z-index:40}
+.byline:hover{color:var(--ink-muted);background:var(--surface-muted)}
 .wrap{max-width:1080px;margin:0 auto;padding:72px 32px 120px}
 @media(max-width:760px){.wrap{padding:48px 18px 80px}}
 
@@ -473,7 +474,7 @@ function showDiag(d){
 
 // --- choreography: events stream in fast, but we PLAY them out with a beat
 // between stages so the cleaning is watchable step by step ---
-let Q=[], playing=false, streamDone=false;
+let Q=[], playing=false, streamDone=false, RUNID=0;
 const BEAT={waveform:650,stage:560,spectrogram:300,diagnosis:240,done:0,status:80,meta:120};
 function enqueue(ev,d){ Q.push([ev,d]); if(!playing) playLoop(); }
 async function playLoop(){
@@ -497,25 +498,37 @@ async function run(form){
   $("#spec-cap").textContent="log-mel spectrogram · time-aligned";
   try{ player.pause(); }catch(e){} setupAudio(AUDIO.pending);
   buildRail(); railState("acquire","active");
-  let resp;
-  try{ resp=await fetch("/api/diagnose/stream",{method:"POST",body:form}); }
-  catch(e){ return fail("network error — is the server running?"); }
-  if(!resp.ok||!resp.body) return fail("server error ("+(resp&&resp.status)+")");
-  const reader=resp.body.getReader(), dec=new TextDecoder(); let buf="";
-  while(true){
-    const {value,done}=await reader.read(); if(done)break;
-    buf+=dec.decode(value,{stream:true}); let i;
-    while((i=buf.indexOf("\n\n"))>=0){ handle(buf.slice(0,i)); buf=buf.slice(i+2); }
+  const myRun=++RUNID;
+  try{
+    let resp;
+    try{ resp=await fetch("/api/diagnose/stream",{method:"POST",body:form}); }
+    catch(e){ fail("network error — is the server running?"); return; }
+    if(!resp.ok||!resp.body){ fail("server error ("+(resp&&resp.status)+")"); return; }
+    const reader=resp.body.getReader(), dec=new TextDecoder(); let buf="";
+    while(true){
+      let r; try{ r=await reader.read(); }catch(e){ break; }    // network drop -> stop cleanly
+      if(r.done)break;
+      if(myRun!==RUNID){ try{reader.cancel();}catch(e){} return; }  // a newer run supersedes us
+      buf+=dec.decode(r.value,{stream:true}); let i;
+      while((i=buf.indexOf("\n\n"))>=0){ handle(buf.slice(0,i)); buf=buf.slice(i+2); }
+    }
+  } finally {
+    if(myRun===RUNID){
+      streamDone=true;
+      if(!playing && !Q.length){ $("#go").disabled=false; $("#go").innerHTML="Diagnose"; }
+    }
   }
-  streamDone=true;
-  if(!playing && !Q.length){ $("#go").disabled=false; $("#go").textContent="Diagnose"; }
 }
 function fail(msg){ $("#err").textContent=msg; $("#err").style.display="block";
-  streamDone=true; $("#go").disabled=false; $("#go").textContent="Diagnose"; }
+  streamDone=true; $("#go").disabled=false; $("#go").innerHTML="Diagnose"; }
 
 function handle(frame){
-  const m=/^event: (.+)\ndata: (.*)$/s.exec(frame); if(!m)return;
-  enqueue(m[1], JSON.parse(m[2]));
+  const i=frame.indexOf("\n");                                 // robust: split event/data lines
+  if(i<0||!frame.startsWith("event: "))return;
+  const ev=frame.slice(7,i).trim();
+  const raw=frame.slice(i+1).replace(/^data: /,"");
+  let d; try{ d=JSON.parse(raw); }catch(e){ return; }           // never let a bad frame hang the page
+  enqueue(ev,d);
 }
 
 function render(ev,d){
@@ -594,9 +607,16 @@ player.onplay=()=>{ $("#play").classList.add("playing"); $("#play").textContent=
 player.onpause=()=>{ $("#play").classList.remove("playing"); $("#play").textContent="▶"; };
 player.onended=()=>{ $("#play").classList.remove("playing"); $("#play").textContent="▶"; };
 $$("#seg button").forEach(b=>b.onclick=()=>{
+  const m=b.dataset.m;
+  if(m!=="full" && spansFor(m).length===0){                   // nothing of that kind in this clip
+    $("#why").textContent = m==="kept"
+      ? "no mechanical span survived to play." : "nothing was removed from this clip.";
+    setTimeout(()=>{ if($("#why").textContent.startsWith("no")||$("#why").textContent.startsWith("nothing"))$("#why").textContent=""; },2200);
+    return;
+  }
   $$("#seg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
-  AUDIO.mode=b.dataset.m; AUDIO.until=null;
-  const sp=spansFor(AUDIO.mode); if(sp[0]){ player.currentTime=sp[0][0]; positionHead(sp[0][0]); }
+  AUDIO.mode=m; AUDIO.until=null;
+  const sp=spansFor(m); if(sp[0]){ player.currentTime=sp[0][0]; positionHead(sp[0][0]); }
 });
 $("#panel").addEventListener("click",e=>{
   if(!AUDIO.hasAudio||e.target.classList.contains("kept-hit"))return;
@@ -634,6 +654,10 @@ async function explainWhy(){
   renderSaliency(res);
 }
 function renderSaliency(res){
+  if(!res.map||!res.n_time||!res.n_freq||!res.top){ $("#why").textContent="explanation unavailable for this clip."; return; }
+  if($("#spec-wrap").style.display!=="block"){    // no spectrogram to overlay -> headline only
+    saliencyHeadline(res); return;
+  }
   const cv=$("#sal"), spec=$("#spec"), dpr=devicePixelRatio||1;
   const W=spec.clientWidth||1, H=150;
   cv.style.width=W+"px"; cv.style.height=H+"px"; cv.width=W*dpr; cv.height=H*dpr;
@@ -647,18 +671,26 @@ function renderSaliency(res){
     ctx.fillStyle=`rgba(74,140,226,${(v*0.55).toFixed(3)})`;     // spotlight the evidence
     ctx.fillRect(ti*cw,(F-1-fi)*ch,Math.ceil(cw),Math.ceil(ch));
   }
-  ctx.strokeStyle="#fff"; ctx.lineWidth=2;
-  ctx.strokeRect(bi*cw+1,(F-1-bj)*ch+1,cw-2,ch-2);              // outline the strongest tile
+  if(bv>0){ ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+    ctx.strokeRect(bi*cw+1,(F-1-bj)*ch+1,cw-2,ch-2); }        // outline the strongest tile
   cv.classList.add("on");
   drawTimeCurve(res.time_importance);
-  const t=res.top, strong=Math.abs(t.delta)>=0.06;
-  $("#why").innerHTML = strong
-    ? `The <b>${res.verdict.toUpperCase()}</b> verdict leans most on <b>${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s</b>, `+
-      `<b>${(t.f0/1000).toFixed(1)}–${(t.f1/1000).toFixed(1)} kHz</b> — masking it moves fault probability to `+
-      `<span class="pwo">${t.p_without.toFixed(2)}</span> (from ${res.base_p.toFixed(2)}).`
-    : `<b>Robustly confident</b> (fault p ${res.base_p.toFixed(2)}) — no single region is critical; the evidence is `+
-      `spread across the clip (strongest: ${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s, ${(t.f0/1000).toFixed(1)}–${(t.f1/1000).toFixed(1)} kHz).`;
   $("#spec-cap").textContent="occlusion saliency · brighter = more evidence for the verdict";
+  saliencyHeadline(res);
+}
+function saliencyHeadline(res){
+  const t=res.top, kHz=x=>(x/1000).toFixed(1);
+  if(t.delta<=0.005){            // map all-flat/negative -> no single region is decisive
+    $("#why").innerHTML=`<b>No single region is decisive</b> (model fault p ${res.base_p.toFixed(2)} on this `+
+      `clip) — the evidence is spread across the whole clip; masking any one part barely moves it.`;
+  } else if(Math.abs(t.delta)>=0.06){
+    $("#why").innerHTML=`The model leans most on <b>${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s</b>, `+
+      `<b>${kHz(t.f0)}–${kHz(t.f1)} kHz</b> — masking it moves its fault probability to `+
+      `<span class="pwo">${t.p_without.toFixed(2)}</span> (from ${res.base_p.toFixed(2)} on the raw clip).`;
+  } else {
+    $("#why").innerHTML=`<b>Robustly confident</b> (model fault p ${res.base_p.toFixed(2)}) — no single region `+
+      `is critical; the strongest is ${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s, ${kHz(t.f0)}–${kHz(t.f1)} kHz.`;
+  }
 }
 function drawTimeCurve(ti){
   if(!WF.svg||!ti||!ti.length)return;
@@ -674,12 +706,14 @@ function drawTimeCurve(ti){
 $("#explain").onclick=explainWhy;
 
 $("#go").onclick=()=>{
-  const u=$("#url").value.trim(), f=$("#file").files[0]; const fd=new FormData();
-  if(f){ fd.append("file",f); AUDIO.pending=f; }
-  else if(/^https?:\/\//.test(u)){ fd.append("url",u); AUDIO.pending=null; }
+  const u=$("#url").value.trim(), isUrl=/^https?:\/\//.test(u);
+  const f=isUrl?null:$("#file").files[0]; const fd=new FormData();
+  if(isUrl){ $("#file").value=""; fd.append("url",u); AUDIO.pending=null; }  // URL wins; drop any stale file
+  else if(f){ fd.append("file",f); AUDIO.pending=f; }
   else return fail("paste a URL (http…) or upload a file");
   run(fd);
 };
+$("#url").addEventListener("input",()=>{ if(/^https?:\/\//.test($("#url").value)) $("#file").value=""; });
 $("#pick").onclick=()=>$("#file").click();
 $("#file").onchange=()=>{ if($("#file").files[0]){ $("#url").value=$("#file").files[0].name; $("#go").click(); } };
 $("#url").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#go").click(); });

@@ -55,7 +55,7 @@ class TriageClassifier:
 
     @classmethod
     def load(cls, model_path: str | Path | None = None) -> TriageClassifier:
-        path = Path(model_path or paths.MODEL_TRIAGE)
+        path = Path(model_path) if model_path else paths.resolve_triage()
         if not path.exists():
             raise FileNotFoundError(
                 f"No triage model at {path}.\n"

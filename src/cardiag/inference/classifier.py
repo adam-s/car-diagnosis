@@ -80,14 +80,14 @@ class Classifier:
     @classmethod
     def load(cls, model_path: str | Path | None = None) -> Classifier:
         """Load heads from a joblib artifact (defaults to the bundled model)."""
-        path = Path(model_path or paths.MODEL_CLAP)
+        path = Path(model_path) if model_path else paths.resolve_clap()
         if not path.exists():
             raise FileNotFoundError(
                 f"No model at {path}.\n"
                 f"  → quickest fix (offline, ~2s):  cardiag train --fixtures\n"
-                f"  → real model:  cardiag scrape youtube && cardiag train\n"
-                f"  → or point --model / CARDIAG_DATA at an existing "
-                f"best_model_clap.joblib."
+                f"  → use the shipped model:  cardiag serve --model models  (or copy "
+                f"models/*.joblib into data/training/)\n"
+                f"  → real model:  cardiag scrape youtube && cardiag train"
             )
         try:
             art = joblib.load(path)

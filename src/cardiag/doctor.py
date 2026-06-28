@@ -89,6 +89,9 @@ def _check_model():
     from cardiag import paths
     if paths.MODEL_CLAP.exists():
         return OK, f"model at {paths.MODEL_CLAP}", ""
+    shipped = paths.SHIPPED_DIR / "best_model_clap.joblib"
+    if shipped.exists():
+        return OK, "using the shipped pre-trained model in models/", ""
     return WARN, "no trained model yet", \
         "train one fast:  cardiag train --fixtures   (offline), or  cardiag demo"
 

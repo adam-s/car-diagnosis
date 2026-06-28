@@ -98,19 +98,27 @@ def _check_origin(request) -> None:
 # clip (uploads play locally via an object URL; URL inputs are fetched server-side).
 _AUDIO_DIR = Path(tempfile.gettempdir()) / "cardiag_audio"
 _AUDIO_KEEP = 12
+_AUDIO_LOCK = threading.Lock()        # serialize cache eviction (concurrent TOCTOU)
 
 
 def _cache_audio(src_path: Path) -> str:
     """Move a downloaded clip into the audio cache; return its hex id. Evicts the
-    oldest so the cache stays bounded."""
+    oldest so the cache stays bounded. Eviction is locked + tolerant of files a
+    concurrent request already removed (was a TOCTOU crash under load)."""
     import secrets
+
+    def _mtime(p):
+        try:
+            return p.stat().st_mtime
+        except OSError:
+            return 0.0
     _AUDIO_DIR.mkdir(exist_ok=True)
     jid = secrets.token_hex(8)
     dest = _AUDIO_DIR / f"{jid}{src_path.suffix.lower() or '.wav'}"
     shutil.move(str(src_path), dest)
-    old = sorted(_AUDIO_DIR.glob("*"), key=lambda p: p.stat().st_mtime)[:-_AUDIO_KEEP]
-    for p in old:
-        p.unlink(missing_ok=True)
+    with _AUDIO_LOCK:
+        for p in sorted(_AUDIO_DIR.glob("*"), key=_mtime)[:-_AUDIO_KEEP]:
+            p.unlink(missing_ok=True)
     return jid
 
 
@@ -120,9 +128,12 @@ def get_audio(jid: str):
     if not (jid and all(c in "0123456789abcdef" for c in jid) and len(jid) <= 32):
         return JSONResponse({"error": "bad id"}, status_code=400)
     hits = list(_AUDIO_DIR.glob(f"{jid}.*"))
-    if not hits:
+    if not hits or not hits[0].exists():
         return JSONResponse({"error": "expired"}, status_code=404)
-    return FileResponse(hits[0])
+    try:
+        return FileResponse(hits[0])
+    except (FileNotFoundError, RuntimeError):   # evicted between glob and send
+        return JSONResponse({"error": "expired"}, status_code=404)
 
 
 @app.post("/api/diagnose/stream")
@@ -173,7 +184,8 @@ async def diagnose_stream(request: Request, file: UploadFile | None = File(None)
                     yield _sse("error", {"message": str(e)})
                     return
                 jid = _cache_audio(path)                 # keep it so the UI can play it
-                path = next(_AUDIO_DIR.glob(f"{jid}.*"))
+                cached = list(_AUDIO_DIR.glob(f"{jid}.*"))
+                path = cached[0] if cached else path     # tolerate a racing eviction
                 yield _sse("audio", {"url": f"/api/audio/{jid}"})
             with _LOCK:
                 for name, payload in explain.explain(path, source=src, title=title):

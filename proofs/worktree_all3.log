@@ -1,0 +1,64 @@
+HEAD is now at a6e5fbc Make Camoufox the default scraping transport (TikTok + Reddit)
+=== fresh venv + install [scrape,web,dev] ===
+ + yt-dlp==2026.6.9
+Current version: v135.0.1-beta.24
+=== clean slate ===
+model exists? False
+=== [A] scrape YouTube (yt-dlp) ===
+  [youtube 8/10] fault  clips: 41
+  skip Bad9JIBFoOI: CalledProcessError
+  [youtube 10/10] fault  clips: 43
+youtube: 43 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/corpus.jsonl
+=== [B] scrape Reddit (Camoufox) ===
+  r/Justrolledintotheshop top?t=month p1: kept 17 (scanned 99, reposts 1)
+  r/Justrolledintotheshop hot p1: kept 17 (scanned 99, reposts 1)
+
+DONE: kept 17 of 99 scanned, 1 reposts skipped -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/reddit/posts.jsonl
+reddit: 29 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/reddit/corpus.jsonl
+=== [C] scrape TikTok (Camoufox) ===
+│ ❱  22 from patchright.async_api import async_playwright                      │
+│    23                                                                        │
+│    24 from cardiag import paths                                              │
+│    25                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ModuleNotFoundError: No module named 'patchright'
+=== [D] train on the combined 3-source corpus ===
+    ],
+    "n_train": 15,
+    "n_test": 3,
+    "held_out_acc": 0.0,
+    "majority": 1.0
+  },
+  "triage": {
+    "classes": [
+      "chassis",
+      "engine"
+    ],
+    "n_train": 15,
+    "n_test": 3,
+    "held_out_acc": 0.667,
+    "majority": 1.0
+  }
+}
+
+saved model -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/training/best_model_clap.joblib
+saved triage -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/training/triage_model.joblib
+=== [E] diagnose a scraped clip ===
+{
+ "file": "/private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/clips/IEyCs9iXiYs/clip_00.wav",
+ "verdict": "fault",
+ "fault_probability": 1.0,
+ "engine_knock_probability": 0.073,
+ "causes": [
+  {
+   "part": "wheel_bearing",
+   "p": 0.933,
+   "note": ""
+  },
+  {
+   "part": "engine_internal",
+   "p": 0.067,
+   "note": ""
+  }
+ALL3_EXIT=0
+WT_ALL3_SCRIPT_EXIT=0

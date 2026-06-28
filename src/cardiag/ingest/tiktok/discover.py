@@ -19,9 +19,11 @@ import asyncio
 import json
 import sys
 
-from patchright.async_api import async_playwright
-
 from cardiag import paths
+
+# NOTE: patchright is the fallback browser; Camoufox is primary
+# (discover_camoufox.py). Import patchright lazily inside run() so this module's
+# shared PROBLEM_QUERIES / extract_items stay importable without it installed.
 
 DATA = paths.TT_DATA
 USER_DIR = DATA / "browser_profile"
@@ -104,6 +106,7 @@ async def search_one(page, found, query, target):
 async def run(queries, target, headed):
     DATA.mkdir(exist_ok=True)
     found = {}
+    from patchright.async_api import async_playwright   # lazy (fallback browser)
     async with async_playwright() as p:
         ctx = await p.chromium.launch_persistent_context(
             user_data_dir=str(USER_DIR), headless=not headed, channel="chrome",

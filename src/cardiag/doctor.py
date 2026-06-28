@@ -131,8 +131,13 @@ def run() -> int:
         c.print(f"\n[red]{bad} blocking issue(s).[/red] Fix the ✗ items above, "
                 f"then re-run [bold]cardiag doctor[/bold].\n")
     else:
-        c.print("\n[green]All set.[/green] Try [bold]cardiag train --fixtures[/bold] "
-                "then [bold]cardiag diagnose <clip.wav>[/bold].\n")
+        c.print("\n[green]All set.[/green] Next steps, in order:")
+        c.print("  [dim]1.[/dim] [bold]cardiag train --fixtures[/bold]      "
+                "[dim]# a model in ~2s, offline[/dim]")
+        c.print("  [dim]2.[/dim] [bold]cardiag inspect <clip.wav>[/bold]    "
+                "[dim]# see + hear what the pipeline does[/dim]")
+        c.print("  [dim]3.[/dim] [bold]cardiag demo[/bold]                  "
+                "[dim]# the whole loop, scraping for real[/dim]\n")
     return bad
 
 

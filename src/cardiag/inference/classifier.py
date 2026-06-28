@@ -50,8 +50,10 @@ class Classifier:
         path = Path(model_path or paths.MODEL_CLAP)
         if not path.exists():
             raise FileNotFoundError(
-                f"No model at {path}. Train one with `cardiag train`, or set "
-                f"--model / CARDIAG_DATA to point at an existing "
+                f"No model at {path}.\n"
+                f"  → quickest fix (offline, ~2s):  cardiag train --fixtures\n"
+                f"  → real model:  cardiag scrape youtube && cardiag train\n"
+                f"  → or point --model / CARDIAG_DATA at an existing "
                 f"best_model_clap.joblib."
             )
         return cls(joblib.load(path)["heads"])

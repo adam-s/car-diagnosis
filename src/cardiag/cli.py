@@ -18,9 +18,33 @@ import typer
 
 app = typer.Typer(
     add_completion=False,
-    help="Diagnose a car's mechanical fault from the sound it makes.",
+    help="Diagnose a car's mechanical fault from the sound it makes.\n\n"
+         "New here? Run [bold]cardiag doctor[/bold] — it checks your setup and "
+         "points you to the next step.",
     no_args_is_help=True,
+    rich_markup_mode="rich",
 )
+
+
+def _nudge(*lines: str) -> None:
+    """Print a subtle 'what next' hint — the gentle hand-off to the next step.
+
+    Goes to stderr so it never pollutes machine-readable stdout (e.g. `--json`)."""
+    from rich.console import Console
+    c = Console(stderr=True)
+    for ln in lines:
+        c.print(f"  [dim]→ {ln}[/dim]")
+
+
+def _load_or_exit(loader):
+    """Load a model, but turn a missing-model FileNotFoundError into a clean,
+    actionable message (no scary traceback for a beginner)."""
+    from rich.console import Console
+    try:
+        return loader()
+    except FileNotFoundError as e:
+        Console(stderr=True).print(f"[yellow]{e}[/yellow]")
+        raise typer.Exit(1) from None
 
 
 def _print_diagnosis(d) -> None:
@@ -54,12 +78,14 @@ def diagnose(
 ):
     """Diagnose a recording with the full model (fault / knock / cause)."""
     from cardiag import Classifier
-    clf = Classifier.load(model)
+    clf = _load_or_exit(lambda: Classifier.load(model))
     result = clf.diagnose(audio, clean_audio=not no_clean)
     if as_json:
         print(json.dumps(result.to_dict(), indent=1))
     else:
         _print_diagnosis(result)
+        _nudge(f"see *why* (spectrograms + scores):  cardiag inspect {audio} -o report.html",
+               f"coarse calibrated call:  cardiag triage {audio}")
 
 
 @app.command()
@@ -70,7 +96,7 @@ def triage(
 ):
     """Coarse engine-vs-running-gear call with a calibrated confidence band."""
     from cardiag import TriageClassifier
-    result = TriageClassifier.load(model).triage(audio)
+    result = _load_or_exit(lambda: TriageClassifier.load(model)).triage(audio)
     if as_json:
         print(json.dumps(result.to_dict(), indent=1))
         return
@@ -84,6 +110,7 @@ def triage(
               f"— {result.band_gloss}")
         print(f"  Next: {result.next_step}")
     print("  " + "─" * 56 + "\n")
+    _nudge(f"full diagnosis with causes:  cardiag diagnose {audio}")
 
 
 @app.command()
@@ -100,6 +127,8 @@ def clean(
         import soundfile as sf
         sf.write(out, res.merged_audio(), res.sr)
         print(f"wrote {res.kept_seconds}s of isolated audio -> {out}")
+    _nudge(f"diagnose what was isolated:  cardiag diagnose {audio}",
+           f"see it visually:  cardiag inspect {audio} -o report.html")
 
 
 @app.command()
@@ -115,7 +144,8 @@ def inspect(
     files = list(audio or [])
     if sample:
         files += [str(p) for p in inspect_mod.sample_clips(sample)]
-    inspect_mod.report(files, out_path=out, with_clap=not no_clap)
+    p = inspect_mod.report(files, out_path=out, with_clap=not no_clap)
+    _nudge(f"open it in your browser:  open {p}   (file://{p})")
 
 
 @app.command()
@@ -126,7 +156,8 @@ def gallery(
     """Render an audio-playable grid of the scraped corpus grouped by sound-type,
     so you can listen to clips and judge the labels yourself."""
     from cardiag import inspect as inspect_mod
-    inspect_mod.gallery(out_path=out, limit=limit)
+    p = inspect_mod.gallery(out_path=out, limit=limit)
+    _nudge(f"open it in your browser:  open {p}   (file://{p})")
 
 
 @app.command()
@@ -166,6 +197,8 @@ def scrape(
         build.scrape_tiktok(max_videos=max_videos)
     else:
         raise typer.BadParameter("platform must be youtube, tiktok, or reddit")
+    _nudge("audit what you collected:  cardiag gallery -o gallery.html",
+           "scrape the other sources too, then:  cardiag train")
 
 
 @app.command()
@@ -181,8 +214,12 @@ def train(
     from cardiag.pipeline import build
     if fixtures:
         build.train_from_fixtures(min_class=min_class)
+        _nudge("now diagnose a clip:  cardiag diagnose <clip.wav>",
+               "ready for a real model? scrape:  cardiag scrape youtube")
     else:
         build.train(min_class=min_class)
+        _nudge("diagnose a clip:  cardiag diagnose <clip.wav>",
+               "audit the corpus:  cardiag gallery -o gallery.html")
 
 
 @app.command()
@@ -196,6 +233,9 @@ def demo(
     a handful of clips + the CLAP weights on first run)."""
     from cardiag.pipeline import build
     build.demo(per_query=per_query, max_videos=max_videos)
+    _nudge("see/hear what happened:  cardiag inspect --sample 6 -o report.html",
+           "browse your corpus:  cardiag gallery -o gallery.html",
+           "scale up for a better model:  cardiag scrape youtube --per-query 5 --max-videos 200")
 
 
 @app.command()

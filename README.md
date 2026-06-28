@@ -74,15 +74,23 @@ fresh clone builds its own model from scratch:
 ```bash
 git clone https://github.com/adamsohn/car-diagnosis && cd car-diagnosis
 uv venv --python 3.11 && source .venv/bin/activate
-uv pip install -e ".[scrape,web,dev]"
+uv pip install -e ".[scrape,web,dev,viz]"
 
-cardiag demo                 # scrape → clean → train → diagnose, end to end
+cardiag doctor               # checks your setup and tells you exactly what's next
 ```
 
-`cardiag demo` discovers a handful of fault + normal videos on YouTube, downloads
-and cleans them, CLAP-embeds the clips, trains the models into `data/training/`,
-and diagnoses one — proving the whole pipeline on your machine in a few minutes.
-It needs only `yt-dlp` + CLAP (downloaded on first use) — **no LLM, no external
+From here you never have to guess the next command — each one ends by pointing to
+the next. `cardiag doctor` will hand you the gentle path:
+
+```bash
+cardiag train --fixtures     # a working model in ~2s, offline (no scrape, no 2GB download)
+cardiag inspect some.wav     # SEE + HEAR what the pipeline does, then it nudges you onward
+cardiag demo                 # the whole loop for real: scrape → clean → train → diagnose
+```
+
+`cardiag demo` discovers fault + normal videos (YouTube via yt-dlp, TikTok + Reddit
+via Camoufox), cleans them, CLAP-embeds the clips, trains the models, and diagnoses
+one — the whole pipeline on your machine in a few minutes. **No LLM, no external
 datasets, no API keys.**
 
 Then run it for real (more clips → a better model):

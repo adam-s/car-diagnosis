@@ -57,9 +57,10 @@ class TriageClassifier:
         path = Path(model_path or paths.MODEL_TRIAGE)
         if not path.exists():
             raise FileNotFoundError(
-                f"No triage model at {path}. Train one with "
-                f"`cardiag train`, or point --model / CARDIAG_DATA at an "
-                f"existing triage_model.joblib."
+                f"No triage model at {path}.\n"
+                f"  → quickest fix (offline, ~2s):  cardiag train --fixtures\n"
+                f"  → or point --model / CARDIAG_DATA at an existing "
+                f"triage_model.joblib."
             )
         art = joblib.load(path)
         return cls(art["model"], art["classes"])

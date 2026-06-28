@@ -155,6 +155,18 @@ def review(clips, base_url: str, outdir: Path) -> None:
             el = pg.query_selector("#viz-card")
             if el and el.is_visible():
                 el.screenshot(path=str(outdir / f"closeup_{label}_audio.png"))
+            # exercise playback if controls appeared: click play, capture the moving playhead
+            ctrl = pg.query_selector("#controls")
+            if ctrl and ctrl.is_visible():
+                try:
+                    pg.click("#play")
+                    pg.wait_for_timeout(900)
+                    if el:
+                        el.screenshot(path=str(outdir / f"playing_{label}.png"))
+                    playing = pg.eval_on_selector("#play", "b=>b.classList.contains('playing')")
+                    print(f"    playback: controls shown, playing={playing}")
+                except Exception as e:
+                    print(f"    playback check failed: {e}")
             verdict = pg.text_content("#verdict") or "?"
             band = pg.text_content("#band") or ""
             print(f"  {label:16} verdict={verdict:9} triage[{band}] -> {full.name}")

@@ -105,6 +105,25 @@ svg{display:block;width:100%;overflow:visible}
   color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .span-tag{font-family:var(--font-sans);font-size:10px;font-weight:600;letter-spacing:.02em}
 .span-num{font-family:var(--font-sans);font-size:10px;font-weight:700}
+.viz-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.controls{display:flex;align-items:center;gap:12px}
+.playbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border-strong);background:var(--bg);
+  color:var(--accent);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .12s ease,transform .1s ease;padding-left:2px}
+.playbtn:hover{background:var(--surface-muted)} .playbtn:active{transform:scale(.94)}
+.playbtn.playing{background:var(--accent);color:#fff;border-color:var(--accent);padding-left:0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;background:var(--bg)}
+.seg button{font-family:var(--font-sans);font-size:.78rem;font-weight:500;color:var(--ink-muted);background:transparent;
+  border:0;padding:6px 13px;cursor:pointer;transition:background .12s ease,color .12s ease}
+.seg button:hover{background:var(--surface-muted)}
+.seg button.on{background:var(--accent);color:#fff}
+.time{font-family:var(--font-mono);font-size:.78rem;color:var(--ink-subtle);min-width:34px}
+.panel{position:relative}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);pointer-events:none;
+  box-shadow:0 0 6px rgba(31,58,95,.5);z-index:3}
+.playhead::before{content:"";position:absolute;top:-3px;left:-4px;width:10px;height:10px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 6px rgba(31,58,95,.5)}
+#wf rect.kept-hit{cursor:pointer}
 
 .log{position:relative;padding-left:26px}
 .log::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
@@ -182,20 +201,35 @@ svg{display:block;width:100%;overflow:visible}
     <div class="rail" id="rail"></div>
 
     <div class="card" id="viz-card" style="display:none">
-      <h3>Audio timeline — what survives the clean</h3>
-      <svg id="wf" height="120"></svg>
-      <div class="spec-wrap" id="spec-wrap" style="display:none">
-        <canvas id="spec"></canvas>
-        <span class="spec-lab spec-hi">24 kHz</span><span class="spec-lab spec-lo">0</span>
-        <span class="spec-cap">log-mel spectrogram · time-aligned</span>
+      <div class="viz-head">
+        <h3 style="margin:0">Audio timeline — what survives the clean</h3>
+        <div class="controls" id="controls" style="display:none">
+          <button class="playbtn" id="play" aria-label="play">▶</button>
+          <div class="seg" id="seg">
+            <button data-m="full" class="on">Full clip</button>
+            <button data-m="kept">Mechanical only</button>
+            <button data-m="removed">Removed only</button>
+          </div>
+          <span class="time" id="time">0:00</span>
+        </div>
+      </div>
+      <div class="panel" id="panel">
+        <svg id="wf" height="120"></svg>
+        <div class="spec-wrap" id="spec-wrap" style="display:none">
+          <canvas id="spec"></canvas>
+          <span class="spec-lab spec-hi">24 kHz</span><span class="spec-lab spec-lo">0</span>
+          <span class="spec-cap">log-mel spectrogram · time-aligned</span>
+        </div>
+        <div class="playhead" id="head" style="display:none"></div>
       </div>
       <svg id="taxis" height="20"></svg>
       <div class="legend">
         <span><i style="background:var(--ink-faded)"></i>raw audio</span>
         <span><i style="background:var(--viz-error)"></i>speech (removed)</span>
         <span><i style="background:var(--viz-music)"></i>music (dropped)</span>
-        <span><i style="background:var(--viz-success-ink)"></i>mechanical span (kept &amp; diagnosed)</span>
+        <span><i style="background:var(--viz-success-ink)"></i>mechanical span (kept &amp; diagnosed) · <em style="color:var(--ink-subtle)">click a green span to hear it</em></span>
       </div>
+      <audio id="player" preload="auto"></audio>
     </div>
 
     <div class="card">
@@ -266,7 +300,7 @@ function initWF(peaks,duration){
   const yA=d3.scaleLinear().domain([-1,1]).range([H-m.b,m.t]);
   const area=d3.area().x((d,i)=>x(i/peaks.length*DUR))
     .y0(d=>yA(Math.max(-1,d[0]*g))).y1(d=>yA(Math.min(1,d[1]*g)));
-  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg; WF.area=area; WF.peaks=peaks; WF.kept=[];
+  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg; WF.area=area; WF.peaks=peaks; WF.kept=[]; WF.washed=[];
   WF.wash=svg.append("g");                                  // removed-span washes (behind)
   svg.append("path").attr("d",area(peaks)).attr("fill","var(--ink-faded)").attr("opacity",.5); // faint base = "raw"
   WF.emph=svg.append("g");                                  // kept spans, redrawn solid (in front)
@@ -292,6 +326,7 @@ function washSpans(spans,color,op,tag){
     if(tag&&w>34)WF.wash.append("text").attr("x",WF.x(s)+w/2).attr("y",WF.m.t+13).attr("text-anchor","middle")
       .attr("class","span-tag").attr("fill",color).text(tag+" ✕").attr("opacity",0)
       .transition().delay(220).duration(300).attr("opacity",.95);
+    if(tag)WF.washed.push({s,e,type:tag});
   });
 }
 // kept audio -> redraw the waveform slice solid green (the "survives the clean" /
@@ -307,6 +342,10 @@ function keepSpans(spans){
       .attr("fill","var(--viz-success-ink)").attr("opacity",0);
     path.transition().duration(480).ease(d3.easeCubicOut).attr("opacity",.92);
     WF.kept.push({s,e,path});
+    // invisible hit area -> click a kept span to hear just that isolated sound
+    WF.svg.append("rect").attr("class","kept-hit").attr("x",WF.x(s)).attr("y",0)
+      .attr("width",w).attr("height",WF.H).attr("fill","transparent")
+      .on("click",ev=>{ ev.stopPropagation(); playSpan(s,e); });
   });
 }
 // the music gate drops some candidate spans -> revoke their green (fade back to the
@@ -315,7 +354,7 @@ function dropMusic(spans){
   if(!spans)return;
   spans.forEach(([s,e])=>{
     const hit=WF.kept.find(k=>Math.abs(k.s-s)<0.06);
-    if(hit)hit.path.transition().duration(400).attr("opacity",0);
+    if(hit){ hit.path.transition().duration(400).attr("opacity",0); hit.dropped=true; }
   });
   washSpans(spans,"var(--viz-music)",.42,"music");
 }
@@ -393,6 +432,7 @@ async function run(form){
   $("#viz-card").style.display="none"; $("#spec-wrap").style.display="none";
   $("#go").disabled=true; $("#go").innerHTML='<span class="spin"></span>';
   Q=[]; playing=false; streamDone=false; WF.uid=0;
+  try{ player.pause(); }catch(e){} setupAudio(AUDIO.pending);
   buildRail(); railState("acquire","active");
   let resp;
   try{ resp=await fetch("/api/diagnose/stream",{method:"POST",body:form}); }
@@ -436,13 +476,74 @@ function render(ev,d){
     return;
   }
   if(ev==="diagnosis"){ railState("embed","done"); showDiag(d); return; }
-  if(ev==="done"){ $$(".node").forEach(n=>n.classList.add("done")); return; }
+  if(ev==="done"){ $$(".node").forEach(n=>n.classList.add("done")); enableControls(); return; }
 }
+
+// ---- playback: hear the clip, scrub it, audition removed vs kept ----
+const AUDIO={mode:"full", file:null, dur:1, until:null};
+const player=$("#player");
+const fmt=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+function setupAudio(file){
+  AUDIO.file=file; AUDIO.until=null; AUDIO.mode="full";
+  $("#controls").style.display="none"; $("#head").style.display="none";
+  $$("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.m==="full"));
+  if(player.src){ try{URL.revokeObjectURL(player.src)}catch(e){} }
+  if(file){ player.src=URL.createObjectURL(file); } else { player.removeAttribute("src"); }
+}
+function enableControls(){
+  AUDIO.dur=DUR;
+  if(AUDIO.file){ $("#controls").style.display="flex"; }     // playback for uploaded files
+}
+function spansFor(m){
+  if(m==="kept") return WF.kept.filter(k=>!k.dropped).map(k=>[k.s,k.e]).sort((a,b)=>a[0]-b[0]);
+  if(m==="removed") return (WF.washed||[]).map(w=>[w.s,w.e]).sort((a,b)=>a[0]-b[0]);
+  return [[0,AUDIO.dur]];
+}
+const inSpan=(t,sp)=>sp.find(([s,e])=>t>=s&&t<e);
+const nextSpan=(t,sp)=>sp.find(([s])=>s>t+1e-3);
+function positionHead(t){
+  const W=$("#wf").clientWidth||1;
+  const h=$("#head"); h.style.display="block"; h.style.left=(t/AUDIO.dur*W)+"px";
+}
+function tick(){
+  if(player.paused)return;
+  let t=player.currentTime;
+  if(AUDIO.until!=null){ if(t>=AUDIO.until){ player.pause(); AUDIO.until=null; return; } }
+  else if(AUDIO.mode!=="full"){
+    const sp=spansFor(AUDIO.mode);
+    if(!inSpan(t,sp)){ const nx=nextSpan(t,sp); if(nx){player.currentTime=nx[0];t=nx[0];} else {player.pause();return;} }
+  }
+  positionHead(t); $("#time").textContent=fmt(t);
+  requestAnimationFrame(tick);
+}
+function playSpan(s,e){ if(!AUDIO.file)return; AUDIO.until=e; player.currentTime=s; player.play(); }
+$("#play").onclick=()=>{
+  if(player.paused){
+    AUDIO.until=null;
+    const sp=spansFor(AUDIO.mode);
+    if(AUDIO.mode!=="full"&&!inSpan(player.currentTime,sp)&&sp[0])player.currentTime=sp[0][0];
+    player.play();
+  } else player.pause();
+};
+player.onplay=()=>{ $("#play").classList.add("playing"); $("#play").textContent="❚❚"; requestAnimationFrame(tick); };
+player.onpause=()=>{ $("#play").classList.remove("playing"); $("#play").textContent="▶"; };
+player.onended=()=>{ $("#play").classList.remove("playing"); $("#play").textContent="▶"; };
+$$("#seg button").forEach(b=>b.onclick=()=>{
+  $$("#seg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  AUDIO.mode=b.dataset.m; AUDIO.until=null;
+  const sp=spansFor(AUDIO.mode); if(sp[0]){ player.currentTime=sp[0][0]; positionHead(sp[0][0]); }
+});
+$("#panel").addEventListener("click",e=>{
+  if(!AUDIO.file||e.target.classList.contains("kept-hit"))return;
+  const wf=$("#wf"), r=wf.getBoundingClientRect();
+  const t=Math.max(0,Math.min(AUDIO.dur,(e.clientX-r.left)/wf.clientWidth*AUDIO.dur));
+  AUDIO.until=null; player.currentTime=t; positionHead(t);
+});
 
 $("#go").onclick=()=>{
   const u=$("#url").value.trim(), f=$("#file").files[0]; const fd=new FormData();
-  if(f) fd.append("file",f);
-  else if(/^https?:\/\//.test(u)) fd.append("url",u);
+  if(f){ fd.append("file",f); AUDIO.pending=f; }
+  else if(/^https?:\/\//.test(u)){ fd.append("url",u); AUDIO.pending=null; }
   else return fail("paste a URL (http…) or upload a file");
   run(fd);
 };

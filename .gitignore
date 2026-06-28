@@ -27,3 +27,7 @@ playwright-report/
 # OS / editor
 .DS_Store
 *.swp
+
+# generated artifacts
+.coverage
+docs/scorecard.json

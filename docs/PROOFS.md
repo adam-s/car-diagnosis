@@ -144,9 +144,12 @@ API, where a browser is not the right tool (the one breaking-reason exception).
 
 ## What is deliberately NOT claimed
 
-- **Not 100% correct.** Fine cause from audio alone has a measured ceiling (~0.33
-  top-1); the honest products are fault-vs-normal (~0.74) and the calibrated
-  engine-vs-running-gear triage (ECE ≈ 0.018). See [research/STATUS.md](research/STATUS.md).
+- **Not 100% correct.** Fine cause from audio alone has a measured ceiling — but
+  as a *ranked top-3 shortlist* the true cause is present ~0.69 of the time. The
+  honest products are fault-vs-normal, the calibrated engine-vs-running-gear
+  triage, and strong knock detection. See [RESULTS.md](RESULTS.md),
+  [MODEL_CARD.md](MODEL_CARD.md), and [SCORECARD.md](SCORECARD.md) for the
+  measured, by-video cross-validated numbers.
 - **Scrapers will drift** as the platforms change their markup/APIs. The parsers are
   unit-tested and the transports were smoke-tested live, but live scraping is never
   "proven forever."

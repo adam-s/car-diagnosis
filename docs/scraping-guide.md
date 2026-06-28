@@ -189,7 +189,8 @@ pipeline/gate_tier.py   # objective trust tiering: gold / silver / bronze
 pipeline/music_gate.py  # CLAP music filter -> exclude contaminated clips
 ```
 
-…and then into `training/` (see [`01-what-we-have.md`](01-what-we-have.md) §5).
+…and then into training (see [`architecture.md`](architecture.md) for the full
+pipeline diagram).
 
 ---
 

@@ -1,8 +1,8 @@
 # Iteration research — tuning the audio→fault model
 
-> Overnight run, started 2026-06-11. Applies the recursive self-tuning pattern
-> ([.claude/reference/recursive-self-tuning-agents.md](../.claude/reference/recursive-self-tuning-agents.md))
-> to the modeling problem instead of an agent's `.claude/` program.
+> Research notes from an iterative tuning run: propose a change, measure it with
+> the grouped-CV scorecard, keep only what beats the significance gate. See
+> [eval-methodology.md](eval-methodology.md) for the evaluation protocol.
 
 ## ⭐ Headline finding (overturns the project's core assumption)
 
@@ -26,9 +26,11 @@ segments of shared recordings; the knock ceiling has no such caveat.
 
 **Consequences for the project plan:**
 
-1. **The bottleneck is label quality, not the backbone.** STATUS.md's premise
+1. **The bottleneck is label quality, not the backbone.** The early premise
    ("need BEATs ≫ CLAP") is *not* what's blocking us — CLAP is already enough
-   for these tasks given clean labels. BEATs is now an optimization, not the
+   for these tasks given clean labels (later confirmed: a frozen PANNs/CNN14
+   fusion gave no significant gain — see [eval-methodology.md](eval-methodology.md)).
+   BEATs is now an optimization, not the
    critical path.
 2. **The verified external data should move from eval-only to training.** It is
    the highest-leverage asset in the repo. ~1,900 clean clips beat ~5,000 weak

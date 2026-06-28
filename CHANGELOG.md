@@ -14,6 +14,32 @@ All notable changes to this project are documented here. Format loosely follows
 - Bundled fixture embeddings for offline training/tests; snapshot regression
   harness; robustness + honesty test suites. ruff + mypy + pre-commit + CI.
 
+### Added (measurement & calibration)
+- **Rigorous, committed eval harness** (`python -m cardiag.training.eval.scorecard`
+  → `docs/SCORECARD.md`): by-video `StratifiedGroupKFold` (5×5, leakage-asserted),
+  imbalance-aware metrics (balAcc/macroF1/MCC/AUROC/AUPRC), ECE, a by-video
+  label-permutation null, top-k accuracy for ranked-shortlist heads, a
+  Nadeau–Bengio corrected-t test for comparing versions, and a source-confound
+  probe. Methodology + citations in `docs/research/eval-methodology.md`; per-head
+  `docs/MODEL_CARD.md`.
+- **What it measured:** `knock` AUROC 0.99 (strong); `kind`/`triage` AUROC
+  0.70/0.72 (real — permutation p=0.035 — but modest, at the literature ceiling);
+  `cause` **top-3 = 0.69** (the true part is in the shown shortlist 69% of the
+  time, vs 0.25 random — top-1 0.40 understated it). The corpus has a source
+  confound (every `normal` is YouTube), quantified and reported honestly.
+
+### Changed (training)
+- **Probabilities are now calibrated** — each head carries a temperature (Guo et
+  al. 2017) fit on out-of-fold logits and applied at inference. Measured ECE:
+  `kind` 0.317→0.044, `triage` 0.199→0.131. Decision-preserving, so a weak head
+  stops emitting confident wrong verdicts and reads UNCERTAIN.
+- **Shipped model trained on 100% of data** (was discarding the ~25% held-out
+  split), and `train_report.json` now carries a repeated grouped-CV balanced-
+  accuracy (mean±std) with a `weak_signal` flag instead of one arbitrary split.
+- **Negative results (kept honest, not folded in):** CL2N, PCA-whitening,
+  prototypical/kNN heads, CLAP+PANNs fusion, and CLAP zero-shot cause relabeling
+  all failed the significance gate — the binding constraint is data, not the head.
+
 ### Changed
 - **Train/serve embedding skew removed.** Training and inference now share one
   embedding contract (`cardiag.audio.embed`): every vector a head sees — a corpus

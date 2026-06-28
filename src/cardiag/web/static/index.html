@@ -123,7 +123,11 @@ svg{display:block;width:100%;overflow:visible}
   box-shadow:0 0 6px rgba(31,58,95,.5);z-index:3}
 .playhead::before{content:"";position:absolute;top:-3px;left:-4px;width:10px;height:10px;border-radius:50%;
   background:var(--accent);box-shadow:0 0 6px rgba(31,58,95,.5)}
+.hoverline{position:absolute;top:0;bottom:0;width:1px;background:var(--ink-subtle);opacity:.5;pointer-events:none;z-index:2}
+.hoverline span{position:absolute;top:-2px;left:3px;font-family:var(--font-mono);font-size:9px;
+  color:var(--ink-muted);background:var(--bg);padding:0 3px;border-radius:2px;white-space:nowrap}
 #wf rect.kept-hit{cursor:pointer}
+#panel{cursor:pointer}
 
 .log{position:relative;padding-left:26px}
 .log::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
@@ -172,6 +176,11 @@ svg{display:block;width:100%;overflow:visible}
 .note{font-family:var(--font-sans);font-size:.82rem;color:var(--ink-subtle);line-height:1.5;margin-top:14px;
   border-top:1px solid var(--border);padding-top:12px}
 .note em{color:var(--ink-muted);font-style:italic}
+.evidence{font-family:var(--font-sans);font-size:.82rem;color:var(--ink-muted);margin-top:10px;
+  display:inline-block;cursor:default;border-radius:var(--radius-md);padding:3px 8px;margin-left:-8px;
+  transition:background .12s ease}
+.evidence:hover{background:var(--surface-muted)} .evidence b{color:var(--ink)}
+.evidence .locate{color:var(--accent);font-weight:500}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border-strong);
   border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -230,6 +239,7 @@ svg{display:block;width:100%;overflow:visible}
           <span class="spec-cap">log-mel spectrogram · time-aligned</span>
         </div>
         <div class="playhead" id="head" style="display:none"></div>
+        <div class="hoverline" id="hoverline" style="display:none"><span id="hovertime"></span></div>
       </div>
       <svg id="taxis" height="20"></svg>
       <div class="legend">
@@ -255,6 +265,7 @@ svg{display:block;width:100%;overflow:visible}
           <div class="lab"><span>normal</span><span id="faultpc">fault probability</span><span>fault</span></div>
         </div>
       </div>
+      <div class="evidence" id="evidence" style="display:none"></div>
       <div class="grid2">
         <div class="metric">
           <div class="k">Engine knock</div><div class="v" id="knock">—</div>
@@ -433,6 +444,14 @@ function showDiag(d){
     cc.appendChild(row);
     requestAnimationFrame(()=>row.querySelector("i").style.width=Math.max(3,c.p*100)+"%");
   });
+  // ground the diagnosis back to the audio it was made from
+  const nspan=(WF.kept||[]).filter(k=>!k.dropped).length, ev=$("#evidence");
+  if(nspan>0){
+    ev.style.display="inline-block";
+    ev.innerHTML=`diagnosed from <b>${nspan}</b> isolated mechanical span${nspan>1?"s":""} `+
+      `<span class="locate">↦ hover to locate</span>`;
+    ev.onmouseenter=()=>brush("regions"); ev.onmouseleave=unbrush;
+  } else ev.style.display="none";
   let note=d.note||"";
   if(d.music_prob>=.5)note="⚠ This clip looks like mostly music — treat the result with caution. "+note;
   $("#note").innerHTML=note+" <em>Probabilities are temperature-calibrated, so a weak head reads "+
@@ -570,6 +589,14 @@ $("#panel").addEventListener("click",e=>{
   const t=Math.max(0,Math.min(AUDIO.dur,(e.clientX-r.left)/wf.clientWidth*AUDIO.dur));
   AUDIO.until=null; player.currentTime=t; positionHead(t);
 });
+$("#panel").addEventListener("mousemove",e=>{
+  if(!AUDIO.hasAudio)return;
+  const wf=$("#wf"), r=wf.getBoundingClientRect(), x=e.clientX-r.left;
+  const t=Math.max(0,Math.min(AUDIO.dur,x/wf.clientWidth*AUDIO.dur));
+  const hl=$("#hoverline"); hl.style.display="block"; hl.style.left=x+"px";
+  $("#hovertime").textContent=fmt(t);
+});
+$("#panel").addEventListener("mouseleave",()=>{ $("#hoverline").style.display="none"; });
 
 $("#go").onclick=()=>{
   const u=$("#url").value.trim(), f=$("#file").files[0]; const fd=new FormData();

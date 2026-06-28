@@ -108,10 +108,10 @@ def build_clips(outdir: Path) -> list[tuple[str, Path]]:
     parts = [c for c in (_real_clip("fault", "knocking"), _real_clip("fault", "squealing"),
                          _real_clip("fault", "grinding")) if c is not None]
     if len(parts) >= 2:
-        gap = np.zeros(int(0.5 * SR), np.float32)
+        gap = np.zeros(int(0.8 * SR), np.float32)        # >0.5s so spans stay separate
         segs = []
         for c in parts[:3]:
-            segs += [_load(c)[:int(1.6 * SR)], gap]
+            segs += [_load(c)[:int(1.5 * SR)], gap]
         sf.write(outdir / "3_multi_span.wav", np.concatenate(segs), SR)
         clips.append(("multi_span", outdir / "3_multi_span.wav"))
 
@@ -179,6 +179,15 @@ def review(clips, base_url: str, outdir: Path) -> None:
                     print(f"    playback: controls shown, playing={playing}")
                 except Exception as e:
                     print(f"    playback check failed: {e}")
+            # diagnosis grounding: hover the evidence line -> mechanical spans light up above
+            try:
+                evd = pg.query_selector("#evidence")
+                if evd and evd.is_visible():
+                    evd.hover()
+                    pg.wait_for_timeout(350)
+                    pg.screenshot(path=str(outdir / f"ground_{label}.png"), full_page=True)
+            except Exception:
+                pass
             verdict = pg.text_content("#verdict") or "?"
             band = pg.text_content("#band") or ""
             print(f"  {label:16} verdict={verdict:9} triage[{band}] -> {full.name}")

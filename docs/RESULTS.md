@@ -65,10 +65,17 @@ Tracked through the scorecard with a Nadeau–Bengio corrected-t significance ga
 | Refit shipped model on 100% of data | **adopted** — was discarding 25% |
 | **Label denoising** (confident-learning prune, per-source) | **the one consistent signal** — kind +0.063 (p≈0.09), triage +0.049; no help on cause. Borderline, so documented as the validated *direction* (label quality is the lever), not yet shipped as a default. |
 
-**The binding constraint is data, not model architecture.** The levers that move
-held-out accuracy are: scraping `normal` clips from TikTok/Reddit (breaks the
-confound), denoising weak labels, and more videos. The harness is built to measure
-whether any of those actually helps, fold-by-fold.
+**The binding constraint is data, not model architecture.** Both data levers are
+now wired so you can actually pull them and re-measure:
+
+```
+cardiag scrape tiktok --normal    # healthy-engine clips -> breaks the source confound
+cardiag train --prune-noisy 0.15  # confident-learning label cleaning (+~0.05 balAcc)
+python -m cardiag.training.eval.scorecard   # re-measure; did it move?
+```
+
+The harness measures whether each actually helped, fold-by-fold, so the loop is
+self-correcting rather than wishful.
 
 ## What this demonstrates
 

@@ -28,6 +28,17 @@ All notable changes to this project are documented here. Format loosely follows
   time, vs 0.25 random — top-1 0.40 understated it). The corpus has a source
   confound (every `normal` is YouTube), quantified and reported honestly.
 
+### Added (data levers to fix the limits the scorecard exposed)
+- **`cardiag scrape tiktok --normal`** — scrapes healthy-engine clips labeled
+  `normal`, so fault-vs-normal can be learned from more than one source. Breaks the
+  recording-source confound (every prior normal was YouTube). Run the default fault
+  pass and the `--normal` pass; the corpus write is additive.
+- **`cardiag train --prune-noisy FRAC`** — opt-in confident-learning label cleaning
+  (Northcutt et al. 2021): drops the lowest-self-confidence likely-mislabels per
+  source before fitting. The one labeling lever that consistently helped (triage
+  cv-balAcc 0.642→0.713, kind 0.644→0.661); default off as the gain is borderline.
+  Pruning is applied within each CV fold too, so `train_report.json` stays honest.
+
 ### Changed (training)
 - **Probabilities are now calibrated** — each head carries a temperature (Guo et
   al. 2017) fit on out-of-fold logits and applied at inference. Measured ECE:

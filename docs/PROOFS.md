@@ -103,13 +103,22 @@ The swappable LLM backend ([`cardiag.pipeline.llm`](../src/cardiag/pipeline/llm.
   signals into a structured `{fused_cause, fused_kind, fused_confidence, support}`
   in 12.3 s — the multi-signal fusion the corpus was built with.
 
-### 4. Scrape transports (live) — `proofs/scrape_proof.txt`
-- **YouTube:** `yt-dlp ytsearch` returned 5 on-target videos in 3.1 s.
-- **Reddit:** the ported `list_page()` parsed **25 live posts** (6 with video) from
-  `old.reddit.com/r/MechanicAdvice` in 1.5 s.
-- **TikTok:** discovery uses a stealth browser (patchright) + network interception;
-  not run here (needs a browser + anti-bot), but the code is
-  [`cardiag.ingest.tiktok.discover`](../src/cardiag/ingest/tiktok/discover.py).
+### 4. Scrape transports (live) — Camoufox-first
+**Policy:** Camoufox (stealth Firefox) is the default browser transport for all
+page/feed scraping. yt-dlp is used only for media download and YouTube's search
+API, where a browser is not the right tool (the one breaking-reason exception).
+
+- **TikTok → Camoufox:** `discover_camoufox.run()` passed TikTok's WAF and
+  intercepted the `/api/search/item/full/` feed — **61 videos across 3 queries in
+  26 s** (`proofs/tiktok_camoufox_proof.txt`). This required pinning
+  `playwright==1.51.0` (Camoufox Firefox 135) and swallowing Firefox's
+  location-less pageError, which otherwise crashes the driver.
+- **Reddit → Camoufox:** `Browser().get()` fetched `r/MechanicAdvice` and the
+  ported parser read **25 live posts (9 with video) in 3 s**; falls back to urllib
+  if Camoufox is absent.
+- **YouTube → yt-dlp:** `ytsearch` returned 5 on-target videos in 3.1 s. yt-dlp
+  (not a browser) is correct here — it is a media extractor, and YouTube exposes a
+  search API rather than an HTML feed to stealth-fetch.
 
 ## What is deliberately NOT claimed
 

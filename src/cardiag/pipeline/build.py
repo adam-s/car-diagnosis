@@ -171,16 +171,29 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
     Needs the stealth browser: `pip install -e .[scrape]` then
     `patchright install chromium`. TikTok anti-bot may block headless runs.
     """
-    import asyncio
-
-    try:
-        from cardiag.ingest.tiktok import discover
-    except ImportError as e:
-        raise SystemExit(f"tiktok needs the [scrape] extra (patchright): {e}")
+    from cardiag.ingest.tiktok.discover import PROBLEM_QUERIES
 
     paths.ensure_data_dirs()
-    asyncio.run(discover.run(discover.PROBLEM_QUERIES[:n_queries], target=20,
-                             headed=False))
+    queries = PROBLEM_QUERIES[:n_queries]
+
+    # Prefer Camoufox (stealth Firefox); fall back to patchright (stealth Chromium).
+    discovered = False
+    try:
+        from cardiag.ingest.tiktok import discover_camoufox
+        discover_camoufox.run(queries, target=20, headless=True)
+        discovered = True
+    except Exception as e:
+        print(f"  camoufox discovery unavailable ({type(e).__name__}: {e}); "
+              f"trying patchright")
+    if not discovered:
+        import asyncio
+        try:
+            from cardiag.ingest.tiktok import discover
+            asyncio.run(discover.run(queries, target=20, headed=False))
+        except Exception as e:
+            raise SystemExit(f"tiktok discovery failed (need a stealth browser: "
+                             f"`python -m camoufox fetch` or patchright): {e}")
+
     wl = paths.TT_DATA / "worklist.jsonl"
     if not wl.exists():
         raise SystemExit("tiktok discovery produced no worklist "

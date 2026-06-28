@@ -39,10 +39,17 @@ DATA = paths.REDDIT_DATA
 AUDIO = DATA / "audio"
 LEDGER = DATA / "posts.jsonl"
 
+# Camoufox session (set by main() when the stealth browser is available). When
+# set, page fetches go through Firefox — the project-wide scraping transport;
+# otherwise fall back to a plain urllib request.
+_SESSION = None
+
 
 def get(url, tries=3):
     for i in range(tries):
         try:
+            if _SESSION is not None:
+                return _SESSION.get(url)
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             return urllib.request.urlopen(req, timeout=30).read().decode(
                 "utf-8", "replace")
@@ -152,7 +159,7 @@ def download_audio(url, out):
         return False
 
 
-def main(max_pages=12):
+def _scrape(max_pages=12):
     AUDIO.mkdir(parents=True, exist_ok=True)
     seen_post, seen_media = set(), set()
     if LEDGER.exists():
@@ -214,6 +221,34 @@ def main(max_pages=12):
                     time.sleep(THROTTLE)
     print(f"\nDONE: kept {kept} of {scanned} scanned, {reposts} reposts "
           f"skipped -> {LEDGER}")
+
+
+def main(max_pages=12, use_browser=True):
+    """Scrape Reddit. Page fetches go through Camoufox (the project-wide stealth
+    transport) when available; yt-dlp still pulls the v.redd.it audio."""
+    global _SESSION
+    session_cm = None
+    if use_browser:
+        try:
+            from cardiag.scrape import Browser, camoufox_available
+            if camoufox_available():
+                session_cm = Browser()
+                _SESSION = session_cm.__enter__()
+                try:                       # land on old.reddit first (same-origin)
+                    _SESSION.get("https://old.reddit.com/")
+                except Exception:
+                    pass
+                print("reddit: fetching via Camoufox (stealth Firefox)", flush=True)
+        except Exception as e:
+            print(f"reddit: Camoufox unavailable ({type(e).__name__}); "
+                  f"falling back to urllib", flush=True)
+            session_cm = None
+    try:
+        _scrape(max_pages)
+    finally:
+        if session_cm is not None:
+            session_cm.__exit__(None, None, None)
+            _SESSION = None
 
 
 if __name__ == "__main__":

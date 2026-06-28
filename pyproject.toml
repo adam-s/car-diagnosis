@@ -40,7 +40,8 @@ dependencies = [
 # consensus interface.
 scrape = [
     "yt-dlp>=2024.0",
-    "patchright>=1.40",
+    "camoufox>=0.4.11",
+    "playwright==1.51.0",   # MUST match Camoufox's Firefox 135 (newer crashes on pageError)
     "ocrmac>=1.0; sys_platform == 'darwin'",
 ]
 # Optional cloud-GPU batch jobs (Modal). Not needed for local use.

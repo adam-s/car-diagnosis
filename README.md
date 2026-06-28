@@ -96,6 +96,14 @@ cardiag diagnose some_clip.wav
 Requires Python 3.11. (`docs/` describes the fuller research pipeline — LLM label
 fusion + verified external anchors — that produces the higher-fidelity model.)
 
+**Scraping transport.** [Camoufox](https://camoufox.com/) (stealth Firefox) is the
+default browser for all page/feed scraping — **TikTok** search and **Reddit**
+listings both go through it (`python -m camoufox fetch` once to install its
+Firefox; `playwright` is pinned to 1.51.0 to match). **YouTube** is the one
+exception: it uses `yt-dlp` because it's a media extractor with a search API, not
+an HTML page to stealth-fetch. yt-dlp also handles the media download on every
+platform (a browser can't extract signed CDN media).
+
 ## Usage
 
 ```bash

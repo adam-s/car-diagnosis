@@ -34,23 +34,29 @@ $ cardiag diagnose noise.wav
 
 ## The honest thesis
 
-This project is built around a result that took a 12,600-clip corpus and
-leakage-safe evaluation to pin down:
+Leakage-safe, by-video cross-validation pins down what is actually decidable:
 
 > **Sound *type* (grind / squeal / knock / whine / tick) is decidable from audio.
-> The *cause/part* mostly is not — it comes from text.**
+> The *cause/part* mostly is not — it's a ranked guess, never a single answer.**
 
-So `cardiag` does two things well and refuses to pretend about the rest:
+So `cardiag` reports what the numbers support and refuses to pretend about the
+rest. Measured (by-video CV; the shipped model also validated on a 1,355-clip
+**human-verified** set — see [docs/SCORECARD.md](docs/SCORECARD.md) /
+[docs/MODEL_CARD.md](docs/MODEL_CARD.md)):
 
-- **`diagnose`** — fault-vs-normal (~0.74 balanced accuracy on verified clips),
-  engine-knock detection, and a *ranked, probabilistic* cause guess that is never
-  presented as a single confident answer.
-- **`triage`** — the one acoustically separable distinction, **engine-internal vs
-  running-gear**, with a **calibrated** confidence band (ECE ≈ 0.018; HIGH band
-  ~90% correct) so a human knows when to trust it. It abstains rather than guess.
+- **`knock`** — engine-knock vs normal idle: **AUROC 0.99** (ECE 0.007). The
+  standout; acoustically distinctive.
+- **`diagnose`** fault-vs-normal — real but modest (**AUROC ~0.70** confound-free,
+  **0.77 on the verified set**); above chance (permutation *p*=0.035), not magic.
+- **`triage`** engine-internal vs running-gear — **AUROC ~0.72**, with a
+  temperature-**calibrated** confidence band, and it **abstains** when too close.
+- **`cause`** (part family) — a *ranked top-3 shortlist*: the true cause is in it
+  **~69%** of the time (vs 25% random), never a single confident answer.
 
-That restraint is the point. An overconfident single-cause classifier would be
-easy to build and wrong; this one is calibrated and says so.
+That restraint is the point. Probabilities are temperature-calibrated, weak heads
+read "uncertain" rather than guess, and the source confound + permutation null are
+disclosed openly. An overconfident single-cause classifier would be easy to build
+and wrong; this one is calibrated and says so.
 
 ## How it works
 
@@ -68,25 +74,38 @@ music, voice, and static stripped, leaving only the mechanical sound. See
 
 ## Quickstart — clone to inference, from nothing
 
-No clips and no model are bundled (this repo *teaches the loop by running it*). A
-fresh clone builds its own model from scratch:
+No *corpus* is bundled (this repo *teaches the loop by running it*) — but a fresh
+clone is immediately usable: a small **pre-trained model ships in `models/`** (opt
+in with `--model models`, or it's used automatically when you haven't trained your
+own), plus a synthetic **demo clip** so you can diagnose offline with zero setup.
 
 ```bash
 git clone https://github.com/adamsohn/car-diagnosis && cd car-diagnosis
 uv venv --python 3.11 && source .venv/bin/activate
 uv pip install -e ".[scrape,web,dev,viz]"
 
-cardiag doctor               # checks your setup and tells you exactly what's next
+cardiag start                # one command: checks your setup, gets a model, and
+                             # diagnoses the bundled demo clip — proves the loop works
 ```
 
-From here you never have to guess the next command — each one ends by pointing to
-the next. `cardiag doctor` will hand you the gentle path:
+`cardiag start` ends by pointing at the next thing; you never have to guess:
 
 ```bash
+cardiag serve --model models # the live web app (below) — paste a link or drop a clip
 cardiag train --fixtures     # a working model in ~2s, offline (no scrape, no 2GB download)
-cardiag inspect some.wav     # SEE + HEAR what the pipeline does, then it nudges you onward
 cardiag demo                 # the whole loop for real: scrape → clean → train → diagnose
 ```
+
+### The live web app
+
+`cardiag serve --model models` opens a local app where you **paste a YouTube /
+TikTok / Reddit link or drop an audio file** and watch the pipeline run in real
+time: a waveform timeline where speech is struck out and music dropped and the
+surviving mechanical spans glow green, a time-aligned spectrogram, **audio
+playback** (hear the full clip / mechanical-only / removed-only, click a span to
+hear it), and a temperature-calibrated diagnosis. Then **"Explain this verdict"**
+overlays an **occlusion-saliency heatmap** — *why* the model decided, at the
+signal level.
 
 `cardiag demo` discovers fault + normal videos (YouTube via yt-dlp, TikTok + Reddit
 via Camoufox), cleans them, CLAP-embeds the clips, trains the models, and diagnoses
@@ -122,7 +141,9 @@ cardiag triage   clip.wav            # calibrated engine-vs-running-gear
 cardiag clean    clip.wav            # isolate the mechanical sound (no model needed)
 cardiag inspect  clip.wav -o r.html  # SEE/HEAR the pipeline: spans, spectrograms, scores
 cardiag gallery  -o gallery.html     # audio grid of your corpus, grouped by sound-type
-cardiag serve                        # local drag-and-drop web app at :8000
+cardiag serve --model models         # live web app: paste a link / drop a clip, "explain why"
+cardiag scrape   tiktok --normal     # healthy-engine clips (balances the fault-heavy corpus)
+cardiag train    --prune-noisy 0.15  # confident-learning label cleaning before training
 cardiag scrape   youtube|tiktok|reddit
 cardiag train
 ```

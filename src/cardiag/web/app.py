@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import threading
 from functools import lru_cache
 from pathlib import Path
 
@@ -22,6 +23,10 @@ from cardiag import clean
 app = FastAPI(title="cardiag", description="Diagnose a car fault from its sound.")
 _STATIC = Path(__file__).parent / "static"
 
+MAX_BYTES = 50 * 1024 * 1024          # 50 MB upload cap (a sound clip is tiny)
+_OK_SUFFIX = {".wav", ".mp3", ".m4a", ".ogg", ".flac", ".aac", ".webm", ".mp4"}
+_LOCK = threading.Lock()              # serialize CLAP/torch (MPS not thread-safe)
+
 
 @lru_cache(maxsize=1)
 def _classifier():
@@ -29,7 +34,7 @@ def _classifier():
     from cardiag import Classifier
     try:
         return Classifier.load(os.environ.get("CARDIAG_MODEL"))
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return None
 
 
@@ -43,24 +48,47 @@ def health() -> dict:
     return {"status": "ok", "model_loaded": _classifier() is not None}
 
 
+def _safe_suffix(filename: str | None) -> str:
+    """A whitelisted, sanitized file suffix — never trust the raw filename
+    (path traversal, NUL bytes, megabyte-long fake extensions)."""
+    suffix = Path(filename or "").suffix.lower()
+    suffix = "".join(c for c in suffix if c.isalnum() or c == ".")[:8]
+    return suffix if suffix in _OK_SUFFIX else ".wav"
+
+
 @app.post("/diagnose")
 async def diagnose(file: UploadFile) -> JSONResponse:
-    """Clean the uploaded clip, then diagnose it if a model is loaded."""
-    suffix = Path(file.filename or "clip.wav").suffix or ".wav"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
+    """Clean the uploaded clip, then diagnose it if a model is loaded. Hardened:
+    size-capped chunked read, whitelisted suffix, errors -> 400/413 (never 500),
+    inference serialized (torch/MPS is not thread-safe), temp file always removed."""
+    tmp_path = None
     try:
+        with tempfile.NamedTemporaryFile(suffix=_safe_suffix(file.filename),
+                                         delete=False) as tmp:
+            tmp_path = tmp.name
+            total = 0
+            while chunk := await file.read(1 << 20):       # 1 MB chunks
+                total += len(chunk)
+                if total > MAX_BYTES:
+                    return JSONResponse(
+                        {"error": f"file too large (>{MAX_BYTES // 1024 // 1024} MB)"},
+                        status_code=413)
+                tmp.write(chunk)
+        if total == 0:
+            return JSONResponse({"error": "empty upload"}, status_code=400)
+
         clf = _classifier()
-        if clf is None:
-            # No model — still show the user what cleaning isolated.
-            res = clean(tmp_path)
-            payload = {"model_loaded": False, "cleaning": res.to_dict()}
-            return JSONResponse(payload)
-        result = clf.diagnose(tmp_path)
+        with _LOCK:                                        # one clip on the model at a time
+            if clf is None:
+                res = clean(tmp_path)
+                return JSONResponse({"model_loaded": False, "cleaning": res.to_dict()})
+            result = clf.diagnose(tmp_path)
         payload = result.to_dict()
         payload["filename"] = file.filename
         payload["model_loaded"] = True
         return JSONResponse(payload)
+    except (ValueError, FileNotFoundError, OSError) as e:
+        return JSONResponse({"error": f"could not process audio: {e}"}, status_code=400)
     finally:
-        os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)

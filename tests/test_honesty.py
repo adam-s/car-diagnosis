@@ -21,7 +21,7 @@ def test_write_corpus_empty_run_keeps_existing(tmp_path):
     # a later FAILED scrape yields nothing -> must keep the 2 existing
     n = build._write_corpus([], base)
     assert n == 2
-    kept = [json.loads(l) for l in open(base / "corpus.jsonl")]
+    kept = [json.loads(ln) for ln in open(base / "corpus.jsonl")]
     assert {r["clip_id"] for r in kept} == {"v_00", "v_01"}
 
 

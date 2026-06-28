@@ -76,14 +76,29 @@
     async function send(file) {
       result.style.display = 'none';
       spinner.style.display = 'block';
+      spinner.textContent = 'Cleaning and diagnosing…';
+      if (file.size > 50 * 1024 * 1024) {              // client-side size guard
+        showError('That file is larger than 50 MB. A sound clip should be a few MB.');
+        return;
+      }
       const fd = new FormData();
       fd.append('file', file);
       try {
         const r = await fetch('/diagnose', { method:'POST', body:fd });
-        render(await r.json());
+        const d = await r.json().catch(() => ({error: 'server returned a non-JSON response'}));
+        if (!r.ok || d.error) { showError(d.error || ('error ' + r.status)); return; }
+        render(d);
       } catch (e) {
-        spinner.textContent = 'Error: ' + e.message;
+        showError(e.message);
       }
+    }
+
+    function showError(msg) {
+      spinner.style.display = 'none';
+      result.style.display = 'block';
+      document.getElementById('verdict').textContent = '⚠ ' + msg;
+      document.getElementById('verdict').style.color = 'var(--red)';
+      ['knock','causes','segments','note'].forEach(id => document.getElementById(id).innerHTML = '');
     }
 
     function render(d) {
@@ -93,6 +108,11 @@
       const knock = document.getElementById('knock');
       const causes = document.getElementById('causes');
       const segments = document.getElementById('segments');
+
+      if (!d || typeof d.fault_probability !== 'number') {  // guard malformed payloads
+        if (d && d.model_loaded === false) { /* fall through to cleaning view */ }
+        else { showError('unexpected response from server'); return; }
+      }
 
       if (d.model_loaded === false) {
         v.textContent = 'Cleaning only (no model loaded)';

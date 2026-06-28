@@ -59,6 +59,28 @@ def test_web_health(client):
     assert r.json()["status"] == "ok"
 
 
+def test_web_rejects_non_audio_with_400(client, tmp_path, monkeypatch):
+    import cardiag.web.app as webmod
+    webmod._classifier.cache_clear()
+    monkeypatch.setattr(webmod, "_classifier", lambda: None)
+    bad = tmp_path / "x.wav"
+    bad.write_text("definitely not audio")
+    with open(bad, "rb") as fh:
+        r = client.post("/diagnose", files={"file": ("x.wav", fh, "audio/wav")})
+    assert r.status_code == 400 and "error" in r.json()
+
+
+def test_web_rejects_empty_upload_with_400(client, tmp_path, monkeypatch):
+    import cardiag.web.app as webmod
+    webmod._classifier.cache_clear()
+    monkeypatch.setattr(webmod, "_classifier", lambda: None)
+    empty = tmp_path / "e.wav"
+    empty.write_bytes(b"")
+    with open(empty, "rb") as fh:
+        r = client.post("/diagnose", files={"file": ("e.wav", fh, "audio/wav")})
+    assert r.status_code == 400
+
+
 def test_web_diagnose_endpoint_cleaning_path(client, tone_wav, monkeypatch):
     # force "no model loaded" so the endpoint returns the cleaning result
     # (deterministic, CLAP-free)

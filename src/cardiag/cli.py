@@ -249,6 +249,34 @@ def train(
 
 
 @app.command()
+def start():
+    """First-run onboarding in one command: check the environment, train a quick
+    offline model if you don't have one, and tell you exactly what to do next."""
+    from rich.console import Console
+
+    from cardiag import paths
+    from cardiag import doctor as doc
+    from cardiag.pipeline import build
+    c = Console()
+    c.print("\n[bold]Welcome to cardiag.[/bold] Getting you set up…\n")
+    c.print("[bold]1/2[/bold]  environment check")
+    if doc.run():
+        c.print("[yellow]Fix the ✗ items above, then run [bold]cardiag start[/bold] "
+                "again.[/yellow]")
+        raise typer.Exit(1)
+    c.print("[bold]2/2[/bold]  a model to diagnose with")
+    if paths.MODEL_CLAP.exists():
+        c.print(f"  [green]✓[/green] you already have a model at {paths.MODEL_CLAP}")
+    else:
+        c.print("  training a quick model from bundled fixtures (offline, ~2s)…")
+        build.train_from_fixtures()
+    c.print("\n[green]You're ready.[/green] Try, in order:")
+    c.print("  [bold]cardiag diagnose <clip.wav>[/bold]   diagnose a recording")
+    c.print("  [bold]cardiag inspect  <clip.wav>[/bold]   see + hear what it did")
+    c.print("  [bold]cardiag demo[/bold]                  the whole loop, scraping for real\n")
+
+
+@app.command()
 def demo(
     per_query: int = typer.Option(1, help="Videos per query (keep small)."),
     max_videos: int = typer.Option(18, help="Cap on videos processed."),

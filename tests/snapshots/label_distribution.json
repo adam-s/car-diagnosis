@@ -1,0 +1,21 @@
+{
+  "cause": {
+    "belt": 2,
+    "brakes": 3,
+    "engine_internal": 9,
+    "exhaust": 18,
+    "none": 29,
+    "turbo": 1,
+    "water_pump": 2,
+    "wheel_bearing": 10
+  },
+  "kind": {
+    "fault": 58,
+    "normal": 16
+  },
+  "knock": {
+    "knock": 4,
+    "none": 36,
+    "normal_idle": 34
+  }
+}

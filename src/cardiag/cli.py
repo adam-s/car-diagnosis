@@ -189,6 +189,13 @@ def demo(
 
 
 @app.command()
+def doctor():
+    """Preflight: check the environment and print fixes for anything missing."""
+    from cardiag import doctor as doc
+    raise typer.Exit(code=1 if doc.run() else 0)
+
+
+@app.command()
 def version():
     """Print the installed version."""
     import cardiag

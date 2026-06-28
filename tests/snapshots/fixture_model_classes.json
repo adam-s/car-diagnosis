@@ -1,0 +1,22 @@
+{
+  "cause": [
+    "belt",
+    "brakes",
+    "engine_internal",
+    "exhaust",
+    "water_pump",
+    "wheel_bearing"
+  ],
+  "kind": [
+    "fault",
+    "normal"
+  ],
+  "knock": [
+    "knock",
+    "normal_idle"
+  ],
+  "triage": [
+    "chassis",
+    "engine"
+  ]
+}

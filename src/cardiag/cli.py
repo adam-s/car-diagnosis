@@ -310,7 +310,8 @@ def start():
 
     c.print("\n[green]You're ready.[/green] Try, in order:")
     c.print(f"  [bold]cardiag diagnose {paths.DEMO_CLIP.name}[/bold]   (or any clip of your own)")
-    c.print("  [bold]cardiag serve --model models[/bold]   the live web app — paste a link or drop a clip")
+    c.print("  [bold]cardiag serve --model models[/bold]   the live web app — paste a link or "
+            "drop a clip")
     c.print("  [bold]cardiag demo[/bold]                   the whole loop, scraping for real\n")
 
 

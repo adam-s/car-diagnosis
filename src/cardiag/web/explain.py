@@ -92,7 +92,7 @@ def acquire_url(url: str, dest_dir: Path, timeout: int = 180) -> tuple[Path, str
         subprocess.run(
             ["yt-dlp", "--no-warnings", "--no-playlist",
              "--max-filesize", str(MAX_DL_BYTES),
-             "--match-filter", f"duration <? {MAX_DL_SECONDS}",   # '<?' passes if duration is unknown
+             "--match-filter", f"duration <? {MAX_DL_SECONDS}",   # '<?' passes if duration unknown
              "-f", "ba/b", "-x", "--audio-format", "wav",
              "--postprocessor-args", f"-ar {config.SR_CLAP} -ac 1",
              "-o", str(out), "--", url],

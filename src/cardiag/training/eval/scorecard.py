@@ -165,6 +165,34 @@ def agg(folds, keys=("bal_acc", "macro_f1", "mcc", "auroc", "auprc", "brier")):
     return out
 
 
+def topk_cv(X, y, groups, ks=(1, 2, 3, 4), make=lr_head, n_splits=5, repeats=5):
+    """Repeated grouped-CV top-k accuracy — is the true label within the top-k
+    ranked predictions? The honest metric for a head whose *product is a ranked
+    shortlist* (cause): top-1 badly understates a useful top-3. Returns micro
+    (per-clip) and macro (per-class) top-k plus the random-chance baseline."""
+    X = np.asarray(X); y = np.asarray(y); groups = np.asarray(groups)
+    cls = sorted(set(y))
+    ns = max(2, min(n_splits, min(len(set(groups[y == c])) for c in cls)))
+    micro = {k: [] for k in ks}; macro = {k: [] for k in ks}
+    for rep in range(repeats):
+        for tr, te in StratifiedGroupKFold(ns, shuffle=True, random_state=rep).split(X, y, groups):
+            if len(set(y[tr])) < 2:
+                continue
+            clf = make().fit(X[tr], y[tr])
+            P = clf.predict_proba(X[te]); C = np.array(clf.classes_)
+            order = np.argsort(-P, axis=1)
+            for k in ks:
+                hit = np.array([y[te][j] in C[order[j][:k]] for j in range(len(te))])
+                micro[k].append(float(hit.mean()))
+                per: dict = {}
+                for j in range(len(te)):
+                    per.setdefault(y[te][j], []).append(hit[j])
+                macro[k].append(float(np.mean([np.mean(v) for v in per.values()])))
+    return {k: {"micro": (float(np.mean(micro[k])), float(np.std(micro[k]))),
+                "macro": (float(np.mean(macro[k])), float(np.std(macro[k]))),
+                "random": round(k / len(cls), 3)} for k in ks}
+
+
 def permutation_p(X, y, groups, observed_balacc, n: int = 200, make=lr_head):
     null = []
     for i in range(n):
@@ -245,7 +273,25 @@ def run(out_md: Path | None = None) -> dict:
         heads[name] = {"n": len(ys), "balacc": a["bal_acc"], "auroc": a["auroc"],
                        "auprc": a["auprc"], "mcc": a["mcc"], "ece": ec, "majority": maj,
                        "classes": {k: int(v) for k, v in Counter(ys).items()}}
+        if len(set(ys)) > 2:                 # ranked-shortlist head -> report top-k
+            heads[name]["topk"] = topk_cv(Xs, ys, gs)
     report["heads"] = heads
+
+    # top-k for the ranked-shortlist (multiclass) heads — the metric that matches
+    # how the product is used: "is the right answer in the 3-4 causes we show?"
+    multi = {n: h for n, h in heads.items() if "topk" in h}
+    if multi:
+        lines += ["", "## Ranked-shortlist accuracy (top-k) — for multi-class heads",
+                  "", "`cause` returns a ranked list with confidence, not one answer. "
+                  "The honest metric is whether the true cause is *in the shortlist* — "
+                  "top-1 alone badly understates it.", "",
+                  "| Head | top-1 | top-2 | **top-3** | top-4 | random top-3 |",
+                  "|---|--:|--:|--:|--:|--:|"]
+        for n, h in multi.items():
+            tk = h["topk"]
+            cell = lambda k: f"{tk[k]['micro'][0]:.3f}"
+            lines.append(f"| {n} | {cell(1)} | {cell(2)} | **{cell(3)}** | {cell(4)} | "
+                         f"{tk[3]['random']:.3f} |")
 
     # permutation test on the honest cut (is fault/normal real once source is fixed?)
     name = "kind | YouTube (confound-free)"

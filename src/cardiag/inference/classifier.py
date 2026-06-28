@@ -33,15 +33,30 @@ CAUSE_HELP = {
 _FAULT_HI, _FAULT_LO = 0.6, 0.4
 
 
-def _proba(clf, X) -> dict:
+def _proba(clf, X, temperature: float = 1.0) -> dict:
     """Mean class probability over every span vector of one recording.
 
     Pooling happens here, in probability space — each row of ``X`` is a single
     in-distribution span embedding, scored independently, then averaged. We never
     average the embeddings themselves (that would be a vector the head never saw
     at fit time — the train/serve skew this design avoids).
+
+    ``temperature`` (fit at train time, Guo et al. 2017) divides the head's logits
+    before the softmax/sigmoid so a weak head stops being over-confident — the
+    decision is unchanged, only the reported probability. Falls back to plain
+    ``predict_proba`` for heads without logits (e.g. a degenerate DummyClassifier)
+    or T==1.
     """
-    P = np.asarray(clf.predict_proba(X))
+    if temperature and temperature != 1.0 and hasattr(clf, "decision_function"):
+        d = np.asarray(clf.decision_function(X))
+        if d.ndim == 1:                       # binary: sigmoid(logit / T)
+            p1 = 1.0 / (1.0 + np.exp(-d / temperature))
+            P = np.column_stack([1.0 - p1, p1])   # cols align with classes_ = [neg, pos]
+        else:                                 # multiclass: softmax(scores / T)
+            e = np.exp((d - d.max(1, keepdims=True)) / temperature)
+            P = e / e.sum(1, keepdims=True)
+    else:
+        P = np.asarray(clf.predict_proba(X))
     return dict(zip(clf.classes_, P.mean(0)))
 
 
@@ -58,8 +73,9 @@ def _usable(head) -> bool:
 class Classifier:
     """Bundle of the three trained heads. Construct via :meth:`load`."""
 
-    def __init__(self, heads: dict):
+    def __init__(self, heads: dict, temps: dict | None = None):
         self.heads = heads
+        self.temps = temps or {}
 
     @classmethod
     def load(cls, model_path: str | Path | None = None) -> Classifier:
@@ -83,7 +99,7 @@ class Classifier:
                 f"(expected a joblib dict with a 'heads' map of kind/knock/cause). "
                 f"Train one with `cardiag train --fixtures`. [{type(e).__name__}]"
             ) from None
-        return cls(heads)
+        return cls(heads, art.get("temps", {}))
 
     def diagnose(self, path, *, clean_audio: bool = True) -> Diagnosis:
         """Diagnose ``path``: clean -> embed -> heads -> :class:`Diagnosis`.
@@ -103,7 +119,8 @@ class Classifier:
 
         # --- fault/normal -----------------------------------------------------
         if _usable(self.heads["kind"]):
-            p_fault = float(_proba(self.heads["kind"], X).get("fault", 0.0))
+            kp = _proba(self.heads["kind"], X, self.temps.get("kind", 1.0))
+            p_fault = float(kp.get("fault", 0.0))
             verdict = (Verdict.FAULT if p_fault >= _FAULT_HI else
                        Verdict.NORMAL if p_fault <= _FAULT_LO else Verdict.UNCERTAIN)
         else:
@@ -113,12 +130,14 @@ class Classifier:
 
         # --- engine knock -----------------------------------------------------
         knock_classes = set(getattr(self.heads["knock"], "classes_", []))
-        p_knock = (float(_proba(self.heads["knock"], X).get("knock", 0.0))
-                   if "knock" in knock_classes else 0.0)
+        p_knock = 0.0
+        if "knock" in knock_classes:
+            kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
+            p_knock = float(kn.get("knock", 0.0))
 
         # --- cause ------------------------------------------------------------
         if _usable(self.heads["cause"]):
-            cause = _proba(self.heads["cause"], X)
+            cause = _proba(self.heads["cause"], X, self.temps.get("cause", 1.0))
             topk = sorted(cause.items(), key=lambda kv: -kv[1])[:3]
             causes = [Cause(part=k, p=round(float(v), 3), note=CAUSE_HELP.get(k, ""))
                       for k, v in topk]

@@ -27,8 +27,9 @@ def test_fit_degenerate_single_class_returns_dummy():
     import numpy as np
     rows = [{"clip_id": f"c{i}", "video": f"v{i}", "k": "fault"} for i in range(5)]
     embed = {r["clip_id"]: np.zeros(512) for r in rows}
-    clf, report = build._fit(rows, lambda r: r["k"], embed, min_class=1)
+    clf, report, temp = build._fit(rows, lambda r: r["k"], embed, min_class=1)
     assert report["degenerate"] is True
+    assert temp == 1.0                       # no calibration for a constant head
     assert clf.predict([np.zeros(512)])[0] == "fault"
 
 
@@ -42,6 +43,8 @@ def test_fit_two_classes_trains_real_head():
         rows.append({"clip_id": cid, "video": f"v{i}", "k": lbl})
         # separable embeddings so the head is well-defined
         embed[cid] = rng.standard_normal(512) + (3 if lbl == "fault" else -3)
-    clf, report = build._fit(rows, lambda r: r["k"], embed, min_class=2)
+    clf, report, temp = build._fit(rows, lambda r: r["k"], embed, min_class=2)
     assert set(report["classes"]) == {"fault", "normal"}
     assert hasattr(clf, "predict_proba")
+    assert "cv_bal_acc" in report and report["cv_folds"] > 0   # honest grouped-CV report
+    assert temp > 0                                            # a fitted temperature

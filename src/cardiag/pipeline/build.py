@@ -361,16 +361,86 @@ def _triage_of(row: dict):
 
 
 # ===================================================================== train
-def _fit(rows, labelf, embed, min_class: int):
-    """Fit a calibrated linear head with a leakage-safe (group-by-video) report.
-
-    Falls back to a constant ``DummyClassifier`` when there isn't enough data for
-    two classes, so the head always exists.
-    """
-    from sklearn.dummy import DummyClassifier
+def _new_head():
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
+    return make_pipeline(StandardScaler(),
+                         LogisticRegression(max_iter=3000, class_weight="balanced",
+                                            random_state=0))
+
+
+def _cv_report(X, y, groups, n_splits: int = 5, repeats: int = 5) -> dict:
+    """Honest by-video performance: repeated StratifiedGroupKFold balanced accuracy
+    (mean±std), not a single arbitrary split. Balanced accuracy because the corpus
+    is class-skewed (raw accuracy vs majority misleads — see docs/SCORECARD.md)."""
+    from sklearn.metrics import balanced_accuracy_score
+    from sklearn.model_selection import StratifiedGroupKFold
+    y = np.asarray(y)
+    groups = np.asarray(groups)
+    cls = sorted(set(y))
+    ns = max(2, min(n_splits, min(len(set(groups[y == c])) for c in cls)))
+    accs = []
+    for r in range(repeats):
+        sgkf = StratifiedGroupKFold(n_splits=ns, shuffle=True, random_state=r)
+        for tr, te in sgkf.split(X, y, groups):
+            if len(set(y[tr])) < 2:
+                continue
+            clf = _new_head().fit(X[tr], y[tr])
+            accs.append(balanced_accuracy_score(y[te], clf.predict(X[te])))
+    maj = max(Counter(y).values()) / len(y)
+    out = {"cv_bal_acc": round(float(np.mean(accs)), 3),
+           "cv_bal_acc_std": round(float(np.std(accs)), 3),
+           "cv_folds": len(accs), "majority_acc": round(float(maj), 3),
+           "n_videos": len(set(groups))}
+    if len(set(y)) == 2 and out["cv_bal_acc"] - 0.5 < 2 * out["cv_bal_acc_std"]:
+        out["weak_signal"] = ("balanced accuracy is within ~2σ of chance (0.5) — "
+                              "this head carries little signal; needs more/cleaner data")
+    return out
+
+
+def _fit_temperature(X, y, groups) -> float:
+    """Fit a single temperature (Guo et al. 2017) on out-of-fold logits so the
+    head's probabilities stop being over-confident. Binary heads only; preserves
+    the decision boundary (argmax unchanged), only rescales confidence. Returns
+    T (1.0 = no change). Critically de-overconfidences weak heads so diagnose()'s
+    'fault p=0.9' means what it says."""
+    from scipy.optimize import minimize_scalar
+    from sklearn.model_selection import StratifiedGroupKFold
+    y = np.asarray(y)
+    groups = np.asarray(groups)
+    cls = sorted(set(y))
+    if len(cls) != 2:
+        return 1.0
+    pos = cls[-1]
+    ns = max(2, min(5, min(len(set(groups[y == c])) for c in cls)))
+    logits, gold = [], []
+    for tr, te in StratifiedGroupKFold(ns, shuffle=True, random_state=0).split(X, y, groups):
+        if len(set(y[tr])) < 2:
+            continue
+        clf = _new_head().fit(X[tr], y[tr])
+        logits.append(clf.decision_function(X[te]))
+        gold.append((y[te] == pos).astype(float))
+    if not logits:
+        return 1.0
+    L = np.concatenate(logits)
+    G = np.concatenate(gold)
+    sig = lambda z: 1 / (1 + np.exp(-z))
+
+    def nll(T):
+        p = sig(L / T)
+        return -np.mean(G * np.log(p + 1e-9) + (1 - G) * np.log(1 - p + 1e-9))
+    return round(float(minimize_scalar(nll, bounds=(0.3, 10.0), method="bounded").x), 3)
+
+
+def _fit(rows, labelf, embed, min_class: int):
+    """Fit a linear head with an honest by-video CV report + temperature scaling.
+
+    Measures with repeated grouped CV, then refits the shipped model on ALL the
+    data (no held-out data is wasted), and fits a calibration temperature. Falls
+    back to a constant ``DummyClassifier`` when there isn't enough data for two
+    classes, so the head always exists. Returns (clf, report, temperature)."""
+    from sklearn.dummy import DummyClassifier
 
     dim = len(next(iter(embed.values()))) if embed else 512
     data = [(embed[r["clip_id"]], labelf(r), r.get("video", r["clip_id"]))
@@ -384,29 +454,17 @@ def _fit(rows, labelf, embed, min_class: int):
         X = np.array([x for x, _, _ in data]) if data else np.zeros((1, dim))
         y = [lbl for _, lbl, _ in data] or [next(iter(labels), "unknown")]
         return DummyClassifier(strategy="prior").fit(X, y), {
-            "degenerate": True, "classes": sorted(labels), "n": len(data)}
+            "degenerate": True, "classes": sorted(labels), "n": len(data)}, 1.0
 
-    groups = sorted({g for _, _, g in data})
-    test_g = set(groups[::4])
-    tr = [(x, y) for x, y, g in data if g not in test_g]
-    te = [(x, y) for x, y, g in data if g in test_g]
-    clf = make_pipeline(StandardScaler(),
-                        LogisticRegression(max_iter=3000, class_weight="balanced",
-                                           random_state=0))
-    clf.fit([x for x, _ in tr], [y for _, y in tr])
-    report = {"classes": sorted(labels), "n_train": len(tr), "n_test": len(te),
-              "degenerate": False}
-    if te:
-        pred = clf.predict([x for x, _ in te])
-        gold = [y for _, y in te]
-        report["held_out_acc"] = round(float(np.mean([p == g for p, g in zip(pred, gold)])), 3)
-        report["majority"] = round(max(Counter(gold).values()) / len(gold), 3)
-        # be honest when the split is too small/skewed to mean anything
-        if len(te) < 3 or set(g for _, g in tr) != set(gold):
-            report["held_out_unreliable"] = (
-                f"held-out set too small/skewed (n_test={len(te)}); "
-                f"accuracy is not a reliable estimate — scrape more clips")
-    return clf, report
+    X = np.array([x for x, _, _ in data])
+    y = np.array([lbl for _, lbl, _ in data])
+    groups = np.array([g for _, _, g in data])
+    report = {"classes": sorted(labels), "n": len(data), "degenerate": False,
+              **_cv_report(X, y, groups)}
+    temperature = _fit_temperature(X, y, groups)
+    report["temperature"] = temperature
+    clf = _new_head().fit(X, y)             # ship a model trained on ALL the data
+    return clf, report, temperature
 
 
 def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
@@ -420,12 +478,12 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
         joblib.dump(obj, tmp)
         os.replace(tmp, dest)
 
-    heads, report = {}, {}
-    heads["kind"], report["kind"] = _fit(
+    heads, report, temps = {}, {}, {}
+    heads["kind"], report["kind"], temps["kind"] = _fit(
         [r for r in rows if r.get("kind") in ("fault", "normal")],
         lambda r: r.get("kind"), embed, min_class)
-    heads["knock"], report["knock"] = _fit(rows, _knock_of, embed, min_class)
-    heads["cause"], report["cause"] = _fit(
+    heads["knock"], report["knock"], temps["knock"] = _fit(rows, _knock_of, embed, min_class)
+    heads["cause"], report["cause"], temps["cause"] = _fit(
         [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class)
 
     # refuse to ship a model where EVERY head is a constant (e.g. --min-class too
@@ -441,7 +499,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
               "runs normal queries) for both classes.")
 
     paths.TRAIN_DATA.mkdir(parents=True, exist_ok=True)
-    _dump({"heads": heads, "emb": "clap",
+    _dump({"heads": heads, "emb": "clap", "temps": temps,
            "degenerate": {h: report[h].get("degenerate", False)
                           for h in ("kind", "knock", "cause")}}, paths.MODEL_CLAP)
 
@@ -451,10 +509,11 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
         c = cause_fn(r)
         return "engine" if c in _ENGINE else "chassis" if c in _CHASSIS else None
 
-    triage_clf, report["triage"] = _fit(rows, triage_label, embed, min_class)
+    triage_clf, report["triage"], triage_temp = _fit(rows, triage_label, embed, min_class)
     classes = list(getattr(triage_clf, "classes_",
                            report["triage"].get("classes", ["engine", "chassis"])))
-    _dump({"model": triage_clf, "classes": classes}, paths.MODEL_TRIAGE)
+    _dump({"model": triage_clf, "classes": classes, "temperature": triage_temp},
+          paths.MODEL_TRIAGE)
 
     (paths.TRAIN_DATA / "train_report.json").write_text(json.dumps(report, indent=2))
     print("\n=== training report ===")

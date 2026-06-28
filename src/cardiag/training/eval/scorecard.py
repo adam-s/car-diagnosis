@@ -28,9 +28,14 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (average_precision_score, balanced_accuracy_score,
-                             brier_score_loss, f1_score, matthews_corrcoef,
-                             roc_auc_score)
+from sklearn.metrics import (
+    average_precision_score,
+    balanced_accuracy_score,
+    brier_score_loss,
+    f1_score,
+    matthews_corrcoef,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler

@@ -48,9 +48,10 @@ def _band(conf: float) -> tuple[Band, str]:
 class TriageClassifier:
     """Calibrated engine-vs-running-gear triage. Construct via :meth:`load`."""
 
-    def __init__(self, model, classes):
+    def __init__(self, model, classes, temperature: float = 1.0):
         self.model = model
         self.classes = np.array(classes)
+        self.temperature = temperature
 
     @classmethod
     def load(cls, model_path: str | Path | None = None) -> TriageClassifier:
@@ -64,7 +65,7 @@ class TriageClassifier:
             )
         try:
             art = joblib.load(path)
-            return cls(art["model"], art["classes"])
+            return cls(art["model"], art["classes"], art.get("temperature", 1.0))
         except Exception as e:
             raise ValueError(
                 f"{path} is not a valid cardiag triage model (expected a joblib "
@@ -86,7 +87,18 @@ class TriageClassifier:
         # one vector per isolated span (same embedding as training), pooled in
         # probability space — no train/serve skew. See cardiag.audio.embed.
         X = model_vectors(path).vectors
-        p = np.asarray(self.model.predict_proba(X)).mean(0)
+        T = self.temperature
+        if T and T != 1.0 and hasattr(self.model, "decision_function"):
+            d = np.asarray(self.model.decision_function(X))   # temperature-calibrated
+            if d.ndim == 1:
+                p1 = 1.0 / (1.0 + np.exp(-d / T))
+                P = np.column_stack([1.0 - p1, p1])
+            else:
+                e = np.exp((d - d.max(1, keepdims=True)) / T)
+                P = e / e.sum(1, keepdims=True)
+        else:
+            P = np.asarray(self.model.predict_proba(X))
+        p = P.mean(0)
         i = int(p.argmax())
         label = str(self.classes[i])
         conf = float(p[i])

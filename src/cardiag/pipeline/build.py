@@ -41,6 +41,27 @@ _CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "suspension", "differential",
 
 
 # ============================================================ unified labeling
+def _progress(seq, desc):
+    """A rich progress bar when available; a plain iterator otherwise."""
+    seq = list(seq)
+    try:
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            TextColumn,
+            TimeElapsedColumn,
+        )
+        with Progress(TextColumn("  [cyan]{task.description}"), BarColumn(),
+                      MofNCompleteColumn(), TimeElapsedColumn(),
+                      transient=True) as pr:
+            for item in pr.track(seq, description=desc):
+                yield item
+    except Exception:
+        for item in seq:
+            yield item
+
+
 def _clap():
     from cardiag.audio.clap import Clap
     return Clap()
@@ -150,7 +171,7 @@ def scrape_reddit(pages: int = 2, max_posts: int = 60) -> int:
     if not posts_f.exists():
         print("reddit: no posts scraped")
         return 0
-    posts = [json.loads(l) for l in open(posts_f)][:max_posts]
+    posts = [json.loads(ln) for ln in open(posts_f)][:max_posts]
     clap, recs = _clap(), []
     for i, p in enumerate(posts):
         wav = paths.REDDIT_DATA / "audio" / f"{p['fullname']}.wav"
@@ -198,7 +219,7 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
     if not wl.exists():
         raise SystemExit("tiktok discovery produced no worklist "
                          "(browser missing or anti-bot block).")
-    work = [json.loads(l) for l in open(wl)][:max_videos]
+    work = [json.loads(ln) for ln in open(wl)][:max_videos]
 
     clap, recs = _clap(), []
     tmp = paths.TT_DATA / "tmp"
@@ -371,13 +392,11 @@ def train(min_class: int = 2) -> dict:
     print(f"embedding {len(rows)} clips with CLAP…", flush=True)
     clap = _clap()
     embed: dict[str, np.ndarray] = {}
-    for i, r in enumerate(rows):
+    for r in _progress(rows, "embedding clips"):
         y, _ = librosa.load(r["wav"], sr=config.SR_CLAP, mono=True)
         if len(y) < config.SR_CLAP // 2:
             continue
         embed[r["clip_id"]] = clap.embed([y])[0]
-        if (i + 1) % 50 == 0:
-            print(f"  {i+1}/{len(rows)}", flush=True)
     return _train_heads(rows, embed, min_class, _cause_of)
 
 
@@ -393,8 +412,8 @@ def train_from_fixtures(min_class: int = 2) -> dict:
         raise SystemExit(f"no fixture embeddings at {npz} (rebuild with "
                          f"scripts/make_fixtures.py).")
     z = np.load(npz, allow_pickle=True)
-    rows = [{"clip_id": str(c), "video": str(v), "kind": str(k), "l1": str(l),
-             "cause": str(ca)} for c, v, k, l, ca in
+    rows = [{"clip_id": str(c), "video": str(v), "kind": str(k), "l1": str(l1v),
+             "cause": str(ca)} for c, v, k, l1v, ca in
             zip(z["clip_id"], z["video"], z["kind"], z["l1"], z["cause"])]
     embed = {str(c): x for c, x in zip(z["clip_id"], z["X"])}
     print(f"training offline on {len(rows)} bundled fixture embeddings…")

@@ -42,7 +42,7 @@ class Browser:
         self.browser = None
         self.page = None
 
-    def __enter__(self) -> "Browser":
+    def __enter__(self) -> Browser:
         from camoufox.sync_api import Camoufox
         self._cm = Camoufox(headless=self.headless, humanize=True)
         self.browser = self._cm.__enter__()

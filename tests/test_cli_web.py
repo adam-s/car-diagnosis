@@ -42,6 +42,7 @@ def test_cli_clean_outputs_json(tone_wav):
 def client():
     pytest.importorskip("fastapi", reason="install the [web] extra to run web tests")
     from fastapi.testclient import TestClient
+
     from cardiag.web.app import app as web_app
     return TestClient(web_app)
 

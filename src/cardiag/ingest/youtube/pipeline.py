@@ -12,7 +12,6 @@ Statuses: auto (trusted), review (human queue), reject (metadata only, no wav).
 
     uv run pipeline.py <video_id> "<title>"
 """
-import json
 import subprocess
 import sys
 import time
@@ -22,10 +21,9 @@ import librosa
 import numpy as np
 import soundfile as sf
 
-from cardiag import paths
-from cardiag import config
-from cardiag.audio.clap import Clap
+from cardiag import config, paths
 from cardiag.audio.cascade import candidate_regions, cyclic_features, spectral_fingerprint
+from cardiag.audio.clap import Clap
 
 DATA = paths.YT_DATA
 

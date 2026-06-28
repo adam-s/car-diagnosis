@@ -19,8 +19,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 
-from cardiag import paths
-from cardiag import config
+from cardiag import config, paths
 from cardiag.audio.clap import Clap
 
 # expected spectral character per L1 label

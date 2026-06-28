@@ -96,7 +96,8 @@ def _check_disk():
 
 CHECKS = [
     ("python", _check_python),
-    ("ffmpeg", lambda: _check_cmd("ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")),
+    ("ffmpeg", lambda: _check_cmd(
+        "ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")),
     ("yt-dlp", lambda: _check_cmd("yt-dlp", "pip install -e '.[scrape]'")),
     ("torch/transformers", lambda: _check_import("torch", "")),
     ("librosa", lambda: _check_import("librosa", "")),

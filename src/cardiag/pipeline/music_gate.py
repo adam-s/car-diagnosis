@@ -9,15 +9,13 @@ training audio).
 import glob
 import json
 import sys
-from collections import Counter
 from pathlib import Path
 
-from cardiag import paths
-
 import librosa
-import numpy as np
 import torch
 from transformers import ClapModel, ClapProcessor
+
+from cardiag import paths
 
 PROMPTS = ["music or a song with a beat",
            "a mechanical car noise or engine sound",

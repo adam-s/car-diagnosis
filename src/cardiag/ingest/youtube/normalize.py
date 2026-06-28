@@ -18,8 +18,7 @@ import json
 import subprocess
 from collections import Counter
 
-from cardiag import paths
-from cardiag import config
+from cardiag import config, paths
 
 SRC = paths.YT_DATA / "corpus.enriched.jsonl"
 

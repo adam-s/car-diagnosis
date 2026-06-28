@@ -13,6 +13,7 @@ from cardiag.audio.clean import CleanResult, clean
 
 def test_cascade_isolates_loud_span(tone_wav):
     import librosa
+
     from cardiag import config
     y, _ = librosa.load(tone_wav, sr=config.SR_CHEAP, mono=True)
     regions = candidate_regions(y)
@@ -24,6 +25,7 @@ def test_cascade_isolates_loud_span(tone_wav):
 
 def test_cascade_finds_nothing_in_silence(silence_wav):
     import librosa
+
     from cardiag import config
     y, _ = librosa.load(silence_wav, sr=config.SR_CHEAP, mono=True)
     assert candidate_regions(y) == []

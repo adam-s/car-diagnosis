@@ -21,7 +21,6 @@ against audio. Haiku generates candidates; agreement makes them trustworthy.
     uv run training/prep/text_mine.py --knock-videos --limit 40
 """
 import argparse
-import glob
 import json
 import os
 import subprocess

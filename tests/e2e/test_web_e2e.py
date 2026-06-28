@@ -12,7 +12,6 @@ from __future__ import annotations
 import socket
 import subprocess
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest

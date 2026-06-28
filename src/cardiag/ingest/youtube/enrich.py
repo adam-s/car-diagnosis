@@ -17,8 +17,7 @@ import glob
 import json
 from collections import Counter
 
-from cardiag import paths
-from cardiag import config
+from cardiag import config, paths
 
 META = paths.YT_DATA / "meta"
 PAD = 1.0   # seconds of slack when overlapping transcript cues with a clip

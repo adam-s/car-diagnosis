@@ -12,8 +12,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-from cardiag import paths
-from cardiag import config
+from cardiag import config, paths
 
 OUT = paths.YT_DATA / "vehicles.json"
 

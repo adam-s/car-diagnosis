@@ -6,20 +6,37 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: unit · contract · integration
+  lint:
+    name: ruff · mypy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Set up Python 3.11
-        run: uv python install 3.11
+      - run: uv python install 3.11
+      - name: Install (dev)
+        run: |
+          uv venv --python 3.11
+          uv pip install -e ".[web,dev]"
+      - run: uv run ruff check src/cardiag scripts tests
+      - run: uv run mypy
+
+  test:
+    name: unit · contract · integration · offline-train
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.11
       - name: Install (core + web + dev)
         run: |
           uv venv --python 3.11
           uv pip install -e ".[web,dev]"
       - name: Run test suite (excludes live + e2e)
         run: uv run pytest
+      - name: Offline mini-loop — train a model from bundled fixtures (no network)
+        run: |
+          uv run cardiag train --fixtures
+          test -f data/training/best_model_clap.joblib && echo "model trained offline ✓"
 
   e2e:
     name: web e2e (playwright)
@@ -27,8 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Set up Python 3.11
-        run: uv python install 3.11
+      - run: uv python install 3.11
       - name: Install + browser
         run: |
           uv venv --python 3.11

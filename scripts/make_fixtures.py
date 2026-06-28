@@ -20,9 +20,9 @@ os.environ.setdefault(
     "/private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/"
     "3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/fixture_build")
 
-from cardiag import config                       # noqa: E402
-from cardiag.audio.clap import Clap              # noqa: E402
-from cardiag.pipeline import build               # noqa: E402
+from cardiag import config  # noqa: E402
+from cardiag.audio.clap import Clap  # noqa: E402
+from cardiag.pipeline import build  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "src" / "cardiag" / "_fixtures"
 

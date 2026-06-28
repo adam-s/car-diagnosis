@@ -45,7 +45,7 @@ class Classifier:
         self.heads = heads
 
     @classmethod
-    def load(cls, model_path: str | Path | None = None) -> "Classifier":
+    def load(cls, model_path: str | Path | None = None) -> Classifier:
         """Load heads from a joblib artifact (defaults to the bundled model)."""
         path = Path(model_path or paths.MODEL_CLAP)
         if not path.exists():

@@ -25,10 +25,12 @@ from collections import Counter, defaultdict
 import librosa
 import numpy as np
 
-from cardiag import paths
-from cardiag import config                              # pipeline prompts/thresholds
-from cardiag.audio.clap import Clap                     # pipeline CLAP wrapper
-from cardiag.ingest.youtube.pipeline import gate        # pipeline decision rule
+from cardiag import (
+    config,  # pipeline prompts/thresholds
+    paths,
+)
+from cardiag.audio.clap import Clap  # pipeline CLAP wrapper
+from cardiag.ingest.youtube.pipeline import gate  # pipeline decision rule
 from cardiag.training.prep.causes import canonical_l1
 
 OUT = paths.TRAIN_DATA

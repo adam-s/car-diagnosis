@@ -13,8 +13,8 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 from cardiag import paths
-from cardiag import config
 from cardiag.audio.clap import Clap
+
 from .pipeline import acquire, process_video
 
 LEDGER = paths.YT_DATA / "corpus.jsonl"

@@ -92,7 +92,7 @@ def clean(path, *, music_gate: bool = True, sr: int = config.SR_CLAP,
     """
     y16, sr16 = librosa.load(str(path), sr=config.SR_CHEAP, mono=True)
     total_seconds = len(y16) / sr16
-    regions, speech_fraction = candidate_regions(y16, sr16, return_speech_frac=True)
+    regions, speech_fraction = candidate_regions(y16, int(sr16), return_speech_frac=True)
 
     # high-rate audio for the isolated spans we hand downstream
     yhi, _ = librosa.load(str(path), sr=sr, mono=True)

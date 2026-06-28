@@ -55,8 +55,8 @@ def test_label_distribution_snapshot():
     if not npz.exists():
         pytest.skip("fixtures not built")
     z = np.load(npz, allow_pickle=True)
-    rows = [{"kind": str(k), "l1": str(l), "cause": str(c)}
-            for k, l, c in zip(z["kind"], z["l1"], z["cause"])]
+    rows = [{"kind": str(k), "l1": str(lv), "cause": str(c)}
+            for k, lv, c in zip(z["kind"], z["l1"], z["cause"])]
     dist = {
         "kind": dict(sorted(Counter(r["kind"] for r in rows).items())),
         "knock": dict(sorted(Counter(

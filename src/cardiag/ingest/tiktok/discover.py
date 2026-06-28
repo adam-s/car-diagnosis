@@ -106,7 +106,7 @@ async def search_one(page, found, query, target):
 async def run(queries, target, headed):
     DATA.mkdir(exist_ok=True)
     found = {}
-    from patchright.async_api import async_playwright   # lazy (fallback browser)
+    from patchright.async_api import async_playwright  # lazy (fallback browser)
     async with async_playwright() as p:
         ctx = await p.chromium.launch_persistent_context(
             user_data_dir=str(USER_DIR), headless=not headed, channel="chrome",

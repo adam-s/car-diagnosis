@@ -2,10 +2,6 @@
 translation, and the cause/label canonicalization. Pure logic, no I/O."""
 from __future__ import annotations
 
-import os
-
-import pytest
-
 from cardiag import config
 from cardiag.types import Band, Cause, Diagnosis, Segment, TriageResult, Verdict
 

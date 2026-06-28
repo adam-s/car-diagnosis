@@ -10,7 +10,7 @@ high-trust labels only, CLAP+scaler+logistic(balanced)+isotonic, creator-grouped
 """
 import glob
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV

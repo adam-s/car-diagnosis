@@ -10,8 +10,7 @@ import json
 import subprocess
 import sys
 
-from cardiag import paths
-from cardiag import config
+from cardiag import config, paths
 
 
 def harvest(query, n):

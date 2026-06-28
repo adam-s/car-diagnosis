@@ -54,12 +54,14 @@ web = [
     "uvicorn[standard]>=0.29",
     "python-multipart>=0.0.9",
 ]
-# Test pyramid + CI.
+# Test pyramid + CI + lint/type.
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "httpx>=0.27",
     "pytest-playwright>=0.5",
+    "ruff>=0.6",
+    "mypy>=1.10",
 ]
 # Everything.
 all = ["cardiag[scrape,web,dev]"]
@@ -74,6 +76,37 @@ Documentation = "https://github.com/adamsohn/car-diagnosis/tree/main/docs"
 [tool.hatch.build.targets.wheel]
 packages = ["src/cardiag"]
 artifacts = ["src/cardiag/_fixtures/*.npz", "src/cardiag/web/static/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["src/cardiag/modal"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+# E731 (lambda assignment) and UP042 (str+Enum, kept for JSON-serializable enums)
+# are intentional project style.
+ignore = ["E731", "UP042"]
+# The ported research pipeline (ingest/training/pipeline-internals) keeps its
+# original dense style; lint the engineered surface strictly, the ported code
+# lightly.
+[tool.ruff.lint.per-file-ignores]
+"src/cardiag/ingest/**" = ["E501", "E741", "E702", "F841"]
+"src/cardiag/training/**" = ["E501", "E741", "E702", "F841"]
+"src/cardiag/pipeline/fusion.py" = ["E501", "E741", "E702"]
+"src/cardiag/pipeline/gate_tier.py" = ["E501", "E741", "E702"]
+"src/cardiag/pipeline/llm.py" = ["E741"]
+"src/cardiag/pipeline/music_gate.py" = ["E741", "F841"]
+"src/cardiag/inspect.py" = ["E501"]   # long lines live inside the HTML/CSS string
+"scripts/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+# Type-check only the clean engineered core; the ported research code is untyped.
+files = ["src/cardiag/types.py", "src/cardiag/config.py", "src/cardiag/paths.py",
+         "src/cardiag/audio/clean.py", "src/cardiag/inference"]
+check_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

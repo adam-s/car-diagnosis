@@ -10,6 +10,7 @@ def test_train_from_fixtures_offline(monkeypatch, tmp_path):
     """Bundled embeddings -> a real model, no scrape, no CLAP."""
     monkeypatch.setenv("CARDIAG_DATA", str(tmp_path))
     import importlib
+
     import cardiag.paths as p
     importlib.reload(p)
     from cardiag.pipeline import build

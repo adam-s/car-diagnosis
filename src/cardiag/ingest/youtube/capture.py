@@ -63,7 +63,7 @@ def main():
         for i, f in enumerate(as_completed(futs), 1):
             try:
                 vid, st = f.result()
-            except Exception as e:
+            except Exception:
                 stats["fail"] += 1; continue
             stats[st] += 1
             if st == "fail":

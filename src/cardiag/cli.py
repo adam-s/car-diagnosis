@@ -13,7 +13,6 @@ scraping commands don't pay for torch/CLAP.
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
 
@@ -49,7 +48,7 @@ def _print_diagnosis(d) -> None:
 @app.command()
 def diagnose(
     audio: str = typer.Argument(..., help="Path to an audio file."),
-    model: Optional[str] = typer.Option(None, help="Path to best_model_clap.joblib."),
+    model: str | None = typer.Option(None, help="Path to best_model_clap.joblib."),
     no_clean: bool = typer.Option(False, "--no-clean", help="Skip the cleaning cascade."),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output."),
 ):
@@ -66,7 +65,7 @@ def diagnose(
 @app.command()
 def triage(
     audio: str = typer.Argument(..., help="Path to an audio file."),
-    model: Optional[str] = typer.Option(None, help="Path to triage_model.joblib."),
+    model: str | None = typer.Option(None, help="Path to triage_model.joblib."),
     as_json: bool = typer.Option(False, "--json"),
 ):
     """Coarse engine-vs-running-gear call with a calibrated confidence band."""
@@ -91,7 +90,7 @@ def triage(
 def clean(
     audio: str = typer.Argument(..., help="Path to an audio file."),
     no_music_gate: bool = typer.Option(False, "--no-music-gate"),
-    out: Optional[str] = typer.Option(None, help="Write isolated audio to this WAV."),
+    out: str | None = typer.Option(None, help="Write isolated audio to this WAV."),
 ):
     """Isolate the mechanical sound (remove music / voice / static). No model."""
     from cardiag import clean as clean_fn
@@ -123,7 +122,7 @@ def inspect(
 def serve(
     host: str = typer.Option("127.0.0.1"),
     port: int = typer.Option(8000),
-    model: Optional[str] = typer.Option(None),
+    model: str | None = typer.Option(None),
 ):
     """Launch the local web upload app."""
     import os

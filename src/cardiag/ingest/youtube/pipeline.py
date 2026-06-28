@@ -36,7 +36,7 @@ def acquire(vid):
             ["yt-dlp", "--no-warnings", "-f", "ba", "-x", "--audio-format", "wav",
              "--postprocessor-args", f"-ar {config.SR_CLAP} -ac 1",
              "-o", str(DATA / "tmp" / "%(id)s.%(ext)s"),
-             f"https://www.youtube.com/watch?v={vid}"],
+             "--", f"https://www.youtube.com/watch?v={vid}"],
             check=True, capture_output=True, timeout=600)
     return wav
 

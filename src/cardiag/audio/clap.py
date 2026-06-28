@@ -24,6 +24,13 @@ def _load():
     """Lazily load CLAP once per process."""
     global _MODEL, _PROC
     if _MODEL is None:
+        import sys
+        from pathlib import Path
+        cached = list((Path.home() / ".cache" / "huggingface" / "hub").glob(
+            "*clap-htsat-unfused*"))
+        if not cached:          # first run: tell the user about the ~2GB download
+            print("  [cardiag] downloading the CLAP audio model (~2GB, one time; "
+                  "cached afterwards)…", file=sys.stderr, flush=True)
         from transformers import ClapModel, ClapProcessor
         _MODEL = ClapModel.from_pretrained(config.CLAP_MODEL).to(_device()).eval()
         _PROC = ClapProcessor.from_pretrained(config.CLAP_MODEL)

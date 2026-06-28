@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cardiag"
-version = "0.1.0"
+dynamic = ["version"]   # single source of truth: src/cardiag/__init__.py __version__
 description = "Diagnose a car's mechanical fault from the sound it makes — scrape, clean, label, train, classify."
 readme = "README.md"
 license = { text = "MIT" }
@@ -34,10 +34,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # Scraping the corpus (YouTube / TikTok / Reddit). YouTube + Reddit need only
-# yt-dlp; TikTok discovery uses a stealth browser (patchright today — see
-# docs/02-scraping-with-camoufox.md for the recommended Camoufox migration).
-# ocrmac is macOS-only; on other platforms swap in easyocr behind the same
-# consensus interface.
+# yt-dlp; TikTok + Reddit discovery use Camoufox (stealth Firefox). ocrmac is
+# macOS-only; on other platforms swap in easyocr behind the same consensus
+# interface.
 scrape = [
     "yt-dlp>=2024.0",
     "camoufox>=0.4.11",
@@ -64,7 +63,7 @@ dev = [
     "mypy>=1.10",
 ]
 # Everything.
-all = ["cardiag[scrape,web,dev]"]
+all = ["cardiag[scrape,web,viz,dev]"]
 
 [project.scripts]
 cardiag = "cardiag.cli:app"
@@ -72,6 +71,9 @@ cardiag = "cardiag.cli:app"
 [project.urls]
 Homepage = "https://github.com/adamsohn/car-diagnosis"
 Documentation = "https://github.com/adamsohn/car-diagnosis/tree/main/docs"
+
+[tool.hatch.version]
+path = "src/cardiag/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cardiag"]

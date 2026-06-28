@@ -14,6 +14,7 @@ Gentle throttle (rate-limit-safe), restart-safe (skips ledger ids). No LLM.
 """
 import html
 import json
+import os
 import re
 import subprocess
 import sys
@@ -28,7 +29,10 @@ SUBS = ["carproblems", "MechanicAdvice", "AskMechanics", "autorepair",
         "Justrolledintotheshop"]
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-BROWSER = "firefox"
+# yt-dlp reads this browser's cookies to fetch v.redd.it audio. This decrypts
+# your logged-in session — set CARDIAG_COOKIES_BROWSER=chrome/none to change, or
+# accept that the Reddit audio step touches your Firefox profile. (See README.)
+BROWSER = os.environ.get("CARDIAG_COOKIES_BROWSER", "firefox")
 THROTTLE = 3.5              # be polite; HTML is tolerant but don't push it
 DUR_MIN, DUR_MAX = 2, 180
 BOTS = {"automoderator"}
@@ -139,7 +143,7 @@ def yt_meta(url):
     try:
         o = subprocess.run(
             ["yt-dlp", "--no-warnings", "--cookies-from-browser", BROWSER,
-             "--print", "%(acodec)s\t%(duration)s", url],
+             "--print", "%(acodec)s\t%(duration)s", "--", url],
             capture_output=True, text=True, timeout=90).stdout.strip()
         ac, dur = o.split("\t")
         return ac, (float(dur) if dur not in ("NA", "") else 0.0)
@@ -152,7 +156,7 @@ def download_audio(url, out):
         subprocess.run(
             ["yt-dlp", "--no-warnings", "--cookies-from-browser", BROWSER,
              "-f", "ba", "-x", "--audio-format", "wav",
-             "--postprocessor-args", "-ar 48000 -ac 1", "-o", str(out), url],
+             "--postprocessor-args", "-ar 48000 -ac 1", "-o", str(out), "--", url],
             check=True, capture_output=True, timeout=180)
         return out.with_suffix(".wav").exists()
     except Exception:

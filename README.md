@@ -162,6 +162,21 @@ What is and isn't provable is documented honestly in
 confidence; scrapers are tested against recorded fixtures (live sites change); and
 model quality is *measured* (accuracy + calibration), not asserted.
 
+## Security & privacy notes
+
+This is a local research tool; a few things are worth knowing before you run it:
+
+- **Model files are trusted input.** `cardiag diagnose --model X.joblib` (and the
+  `CARDIAG_MODEL` env var) load a pickle via joblib — loading a model executes code
+  in it. Only load `.joblib` models you trained or trust.
+- **Reddit scraping reads your browser cookies.** The Reddit audio step shells out
+  to `yt-dlp --cookies-from-browser firefox` to fetch `v.redd.it` media, which
+  decrypts your logged-in session. Set `CARDIAG_COOKIES_BROWSER` (e.g. `chrome`) or
+  skip Reddit if you'd rather it not touch your profile.
+- **The web app has no auth.** `cardiag serve` binds `127.0.0.1` by default. Don't
+  pass `--host 0.0.0.0` on an untrusted network — it would expose an unauthenticated
+  upload/inference endpoint (it warns you if you try).
+
 ## Acknowledgements
 
 The pipeline and corpus methodology were developed in two predecessor research

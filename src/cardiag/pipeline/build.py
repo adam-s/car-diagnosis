@@ -274,7 +274,7 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
         url = w.get("url") or f"https://www.tiktok.com/@{w.get('author','x')}/video/{vid}"
         mp4, wav = tmp / f"{vid}.mp4", tmp / f"{vid}.wav"
         try:
-            subprocess.run(["yt-dlp", "--no-warnings", "-f", "b", "-o", str(mp4), url],
+            subprocess.run(["yt-dlp", "--no-warnings", "-f", "b", "-o", str(mp4), "--", url],
                            check=True, capture_output=True, timeout=180)
             subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-i",
                             str(mp4), "-ar", str(config.SR_CLAP), "-ac", "1",

@@ -4,7 +4,7 @@ Public API
 ----------
     from cardiag import Classifier, TriageClassifier, clean
 
-    clf = Classifier.load()                 # bundled CLAP + linear heads
+    clf = Classifier.load()                 # after `cardiag train --fixtures` (no model ships)
     result = clf.diagnose("clip.wav")       # cleans -> embeds -> heads
     result.verdict                          # Verdict.FAULT | NORMAL | UNCERTAIN
     result.fault_probability                # 0.81

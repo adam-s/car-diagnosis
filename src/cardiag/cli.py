@@ -212,7 +212,7 @@ def scrape(
     All three sources funnel through one cleaning + CLAP-labeling path and write
     data/<platform>/corpus.jsonl ready for `cardiag train` (no LLM, no external
     data). YouTube runs both fault and normal queries; Reddit and TikTok add
-    fault clips. TikTok needs the stealth browser (`patchright install chromium`).
+    fault clips. TikTok needs the stealth browser (`python -m camoufox fetch`).
     """
     from cardiag.pipeline import build
     if platform == "youtube":

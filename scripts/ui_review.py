@@ -155,6 +155,18 @@ def review(clips, base_url: str, outdir: Path) -> None:
             el = pg.query_selector("#viz-card")
             if el and el.is_visible():
                 el.screenshot(path=str(outdir / f"closeup_{label}_audio.png"))
+            # linked brushing: hover the 'isolated' log entry -> spans light up across views
+            try:
+                ent = pg.query_selector(".entry.brushable")
+                if ent:
+                    ent.hover()
+                    pg.wait_for_timeout(400)
+                    ncols = pg.eval_on_selector_all("#panel .brush-col", "els=>els.length")
+                    if el and ncols:
+                        el.screenshot(path=str(outdir / f"brush_{label}.png"))
+                        print(f"    brushing: {ncols} span column(s) highlighted")
+            except Exception as e:
+                print(f"    brush check failed: {e}")
             # exercise playback if controls appeared: click play, capture the moving playhead
             ctrl = pg.query_selector("#controls")
             if ctrl and ctrl.is_visible():

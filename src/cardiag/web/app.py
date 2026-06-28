@@ -62,6 +62,37 @@ def _sse(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
 
 
+# Small bounded cache of downloaded audio so the front end can PLAY a pasted-link
+# clip (uploads play locally via an object URL; URL inputs are fetched server-side).
+_AUDIO_DIR = Path(tempfile.gettempdir()) / "cardiag_audio"
+_AUDIO_KEEP = 12
+
+
+def _cache_audio(src_path: Path) -> str:
+    """Move a downloaded clip into the audio cache; return its hex id. Evicts the
+    oldest so the cache stays bounded."""
+    import secrets
+    _AUDIO_DIR.mkdir(exist_ok=True)
+    jid = secrets.token_hex(8)
+    dest = _AUDIO_DIR / f"{jid}{src_path.suffix.lower() or '.wav'}"
+    shutil.move(str(src_path), dest)
+    old = sorted(_AUDIO_DIR.glob("*"), key=lambda p: p.stat().st_mtime)[:-_AUDIO_KEEP]
+    for p in old:
+        p.unlink(missing_ok=True)
+    return jid
+
+
+@app.get("/api/audio/{jid}")
+def get_audio(jid: str):
+    """Serve a cached clip for playback. ``jid`` is validated as hex (no traversal)."""
+    if not (jid and all(c in "0123456789abcdef" for c in jid) and len(jid) <= 32):
+        return JSONResponse({"error": "bad id"}, status_code=400)
+    hits = list(_AUDIO_DIR.glob(f"{jid}.*"))
+    if not hits:
+        return JSONResponse({"error": "expired"}, status_code=404)
+    return FileResponse(hits[0])
+
+
 @app.post("/api/diagnose/stream")
 async def diagnose_stream(file: UploadFile | None = File(None),
                           url: str | None = Form(None)) -> StreamingResponse:
@@ -108,6 +139,9 @@ async def diagnose_stream(file: UploadFile | None = File(None),
                 except ValueError as e:
                     yield _sse("error", {"message": str(e)})
                     return
+                jid = _cache_audio(path)                 # keep it so the UI can play it
+                path = next(_AUDIO_DIR.glob(f"{jid}.*"))
+                yield _sse("audio", {"url": f"/api/audio/{jid}"})
             with _LOCK:
                 for name, payload in explain.explain(path, source=src, title=title):
                     yield _sse(name, payload)

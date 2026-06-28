@@ -136,6 +136,15 @@ svg{display:block;width:100%;overflow:visible}
 .entry b{font-family:var(--font-sans);font-size:.84rem;font-weight:600;color:var(--ink)}
 .entry .t{font-family:var(--font-mono);font-size:.7rem;color:var(--ink-faded);margin-left:8px}
 .entry p{font-size:.95rem;color:var(--ink-muted);line-height:1.45;margin-top:2px}
+.entry.brushable{cursor:pointer;border-radius:var(--radius-md);margin-left:-8px;padding-left:8px;
+  transition:background .12s ease}
+.entry.brushable:hover{background:var(--surface-muted)}
+.entry.brushable b::after{content:" · locate ↦";font-family:var(--font-sans);font-weight:500;
+  font-size:.68rem;color:var(--ink-faded);opacity:0;transition:opacity .12s ease}
+.entry.brushable:hover b::after{opacity:1}
+.brush-col{position:absolute;top:0;bottom:0;background:rgba(31,58,95,.13);outline:1px solid var(--accent);
+  pointer-events:none;z-index:2;border-radius:1px;animation:brushin .14s ease}
+@keyframes brushin{from{opacity:0}to{opacity:1}}
 
 #diagnosis{display:none}
 .verdict{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:6px}
@@ -371,11 +380,31 @@ function drawSpec(mel,f,t){
   }
 }
 
-function addLog(label,narration){
+function addLog(label,narration,stage){
   const e=document.createElement("div"); e.className="entry";
   e.innerHTML=`<span class="mk"></span><b>${label}</b><p>${narration}</p>`;
   $("#log").appendChild(e); requestAnimationFrame(()=>e.classList.add("in"));
+  if(["vad","music","regions"].includes(stage)){          // linked brushing: hover -> locate spans
+    e.classList.add("brushable");
+    e.addEventListener("mouseenter",()=>brush(stage));
+    e.addEventListener("mouseleave",unbrush);
+  }
 }
+function spansForStage(stage){
+  if(stage==="vad")return (WF.washed||[]).filter(w=>w.type==="speech");
+  if(stage==="music")return (WF.washed||[]).filter(w=>w.type==="music");
+  if(stage==="regions")return (WF.kept||[]).filter(k=>!k.dropped);
+  return [];
+}
+function brush(stage){
+  unbrush(); const W=$("#wf").clientWidth||1;
+  spansForStage(stage).forEach(sp=>{
+    const c=document.createElement("div"); c.className="brush-col";
+    c.style.left=(sp.s/DUR*W)+"px"; c.style.width=Math.max(2,(sp.e-sp.s)/DUR*W)+"px";
+    $("#panel").appendChild(c);
+  });
+}
+function unbrush(){ $$("#panel .brush-col").forEach(c=>c.remove()); }
 
 function showDiag(d){
   $("#diagnosis").style.display="block";
@@ -457,6 +486,7 @@ function handle(frame){
 
 function render(ev,d){
   if(ev==="status"){ $("#title").textContent=d.message||""; return; }
+  if(ev==="audio"){ player.src=d.url; AUDIO.hasAudio=true; return; }   // pasted-link clip is playable
   if(ev==="error"){ fail(d.message); return; }
   if(ev==="meta"){ railState("acquire","done");
     $("#src").textContent=d.source; $("#title").textContent=d.title||""; return; }
@@ -470,7 +500,7 @@ function render(ev,d){
     if(d.id==="music"&&d.spans){
       dropMusic(d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]));
     }
-    addLog(d.label,d.narration);
+    addLog(d.label,d.narration,d.id);
     const order=["energy","vad","regions","music","embed"];
     const nx=order[order.indexOf(d.id)+1]; railState(d.id,"done"); if(nx)railState(nx,"active");
     return;
@@ -484,15 +514,16 @@ const AUDIO={mode:"full", file:null, dur:1, until:null};
 const player=$("#player");
 const fmt=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
 function setupAudio(file){
-  AUDIO.file=file; AUDIO.until=null; AUDIO.mode="full";
+  AUDIO.file=file; AUDIO.until=null; AUDIO.mode="full"; AUDIO.hasAudio=false;
   $("#controls").style.display="none"; $("#head").style.display="none";
   $$("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.m==="full"));
-  if(player.src){ try{URL.revokeObjectURL(player.src)}catch(e){} }
-  if(file){ player.src=URL.createObjectURL(file); } else { player.removeAttribute("src"); }
+  if(player.src&&player.src.startsWith("blob:")){ try{URL.revokeObjectURL(player.src)}catch(e){} }
+  if(file){ player.src=URL.createObjectURL(file); AUDIO.hasAudio=true; }  // uploads play locally
+  else { player.removeAttribute("src"); }                                // URL: wait for 'audio' event
 }
 function enableControls(){
   AUDIO.dur=DUR;
-  if(AUDIO.file){ $("#controls").style.display="flex"; }     // playback for uploaded files
+  if(AUDIO.hasAudio){ $("#controls").style.display="flex"; }
 }
 function spansFor(m){
   if(m==="kept") return WF.kept.filter(k=>!k.dropped).map(k=>[k.s,k.e]).sort((a,b)=>a[0]-b[0]);
@@ -516,7 +547,7 @@ function tick(){
   positionHead(t); $("#time").textContent=fmt(t);
   requestAnimationFrame(tick);
 }
-function playSpan(s,e){ if(!AUDIO.file)return; AUDIO.until=e; player.currentTime=s; player.play(); }
+function playSpan(s,e){ if(!AUDIO.hasAudio)return; AUDIO.until=e; player.currentTime=s; player.play(); }
 $("#play").onclick=()=>{
   if(player.paused){
     AUDIO.until=null;
@@ -534,7 +565,7 @@ $$("#seg button").forEach(b=>b.onclick=()=>{
   const sp=spansFor(AUDIO.mode); if(sp[0]){ player.currentTime=sp[0][0]; positionHead(sp[0][0]); }
 });
 $("#panel").addEventListener("click",e=>{
-  if(!AUDIO.file||e.target.classList.contains("kept-hit"))return;
+  if(!AUDIO.hasAudio||e.target.classList.contains("kept-hit"))return;
   const wf=$("#wf"), r=wf.getBoundingClientRect();
   const t=Math.max(0,Math.min(AUDIO.dur,(e.clientX-r.left)/wf.clientWidth*AUDIO.dur));
   AUDIO.until=null; player.currentTime=t; positionHead(t);

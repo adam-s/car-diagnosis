@@ -115,3 +115,9 @@ def test_stream_bad_audio_emits_error_event(client, tmp_path):
         r = client.post("/api/diagnose/stream", files={"file": ("x.wav", fh, "audio/wav")})
     assert r.status_code == 200
     assert "error" in _events(r.text)
+
+
+def test_audio_endpoint_rejects_nonhex_and_missing(client):
+    # the cached-audio server must validate ids (no path traversal) and 404 unknown
+    assert client.get("/api/audio/zzzz").status_code == 400          # non-hex id
+    assert client.get("/api/audio/deadbeefdeadbeef").status_code == 404  # valid hex, no file

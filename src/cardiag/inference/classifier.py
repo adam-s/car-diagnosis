@@ -113,7 +113,17 @@ class Classifier:
         placeholder label) carries no information, so we never present its output
         as a confident verdict/cause — we downgrade to UNCERTAIN and say so.
         """
-        ev = model_vectors(path, clean_audio=clean_audio)
+        try:
+            ev = model_vectors(path, clean_audio=clean_audio)
+        except ValueError:
+            # too short or near-silent / unreadable -> degrade honestly, don't crash
+            # or emit a confident verdict on silence (CLAP embeds silence near the
+            # fault cluster, which would otherwise read as a confident FAULT).
+            return Diagnosis(
+                file=str(path), verdict=Verdict.UNCERTAIN, fault_probability=0.0,
+                engine_knock_probability=0.0, causes=[], segments=[],
+                note="clip is too short or has no usable (non-silent) audio to diagnose. "
+                     + Diagnosis.note)
         X, segments, res = ev.vectors, ev.segments, ev.clean_result
         notes = []
 

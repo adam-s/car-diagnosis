@@ -48,3 +48,36 @@ def test_fit_two_classes_trains_real_head():
     assert hasattr(clf, "predict_proba")
     assert "cv_bal_acc" in report and report["cv_folds"] > 0   # honest grouped-CV report
     assert temp > 0                                            # a fitted temperature
+
+
+def test_fit_drops_sentinel_labels():
+    # fuzz regression: '', 'None', 'nan' must not become real classes
+    import numpy as np
+    rng = np.random.default_rng(0)
+    rows = [{"clip_id": f"c{i}", "video": f"v{i}", "k": ("fault" if i % 2 else "")}
+            for i in range(20)]
+    embed = {r["clip_id"]: rng.standard_normal(512) for r in rows}
+    _, report, _ = build._fit(rows, lambda r: r["k"], embed, min_class=2)
+    assert report.get("degenerate") is True               # only 'fault' is real -> 1 class
+    assert "" not in report.get("classes", [])
+
+
+def test_fit_rejects_nonfinite_embeddings():
+    # fuzz regression: NaN/Inf embeddings give a clean SystemExit, not a sklearn crash
+    import numpy as np
+    import pytest
+    rows = [{"clip_id": f"c{i}", "video": f"v{i}", "k": ("fault" if i % 2 else "normal")}
+            for i in range(8)]
+    embed = {r["clip_id"]: np.full(512, np.nan) for r in rows}
+    with pytest.raises(SystemExit):
+        build._fit(rows, lambda r: r["k"], embed, min_class=2)
+
+
+def test_cv_report_no_usable_fold_is_none_not_nan():
+    # fuzz regression: an un-splittable head reports None (valid JSON), not NaN
+    import numpy as np
+    X = np.random.default_rng(0).standard_normal((4, 512))
+    y = np.array(["a", "a", "b", "b"])
+    g = np.array(["v1", "v1", "v2", "v2"])
+    rep = build._cv_report(X, y, g)
+    assert rep["cv_folds"] == 0 and rep["cv_bal_acc"] is None and "cv_unreliable" in rep

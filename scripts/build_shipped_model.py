@@ -46,6 +46,7 @@ def main() -> None:
     z = np.load(a.emb, allow_pickle=True)
     emb = {str(i): v / (np.linalg.norm(v) + 1e-9) for i, v in zip(z["ids"], z["X"])}
     rows = []
+    n_missing_group = 0
     for sp in ("train", "val", "test"):
         f = Path(a.splits) / f"{sp}.jsonl"
         if not f.exists():
@@ -53,12 +54,20 @@ def main() -> None:
         for r in (json.loads(ln) for ln in open(f)):
             if str(r["id"]) not in emb:
                 continue
+            if not r.get("group"):                 # guard the by-video CV: without a
+                n_missing_group += 1               # group field, every clip is its own
+                continue                           # group and the grouped CV leaks
             l1 = r.get("l1") or ""
             if l1 == "normal_idle":                  # map to cardiag's knock-head normal token
                 l1 = config.L1_NORMAL
             rows.append({"clip_id": str(r["id"]), "video": str(r.get("group", r["id"])),
                          "kind": r.get("kind"), "l1": l1, "cause": r.get("cause") or "",
                          "wav": f"/{r.get('source', 'x')}/clip.wav"})
+    if not rows:
+        raise SystemExit("no rows with a 'group' field — grouped CV would leak; add "
+                         "per-video groups to the splits before building a shipped model.")
+    if n_missing_group:
+        print(f"  skipped {n_missing_group} rows missing a 'group' field (would leak CV)")
     print(f"training on {len(rows)} labeled clips ({len(emb)} embeddings), "
           f"cleaning {int(a.prune_noisy*100)}% noisiest labels per source…")
     build._train_heads(rows, emb, a.min_class, lambda r: r.get("cause") or None,

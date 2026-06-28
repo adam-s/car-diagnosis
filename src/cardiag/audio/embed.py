@@ -95,7 +95,9 @@ def _window_vectors(path, win_s: float = 10.0, sr: int = config.SR_CLAP) -> np.n
     for off in offs:
         y, _ = librosa.load(str(path), sr=sr, mono=True, offset=max(0.0, off),
                             duration=win_s)
-        if len(y) < sr // 2:
+        # skip too-short OR near-silent windows — embedding silence with CLAP lands
+        # near the fault cluster and would produce a confident (wrong) verdict
+        if len(y) < sr // 2 or float(np.max(np.abs(y))) < 1e-3:
             continue
         vecs.append(embed_clip(y, sr=sr))
     if not vecs:

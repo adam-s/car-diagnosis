@@ -149,3 +149,32 @@ def test_demo_clip_is_bundled():
     # a fresh clone must have something to diagnose offline
     from cardiag import paths
     assert paths.DEMO_CLIP.exists() and paths.DEMO_CLIP.stat().st_size > 1000
+
+
+def test_explain_on_garbage_is_not_500(client, tmp_path):
+    # fuzz regression: unreadable audio must NOT 500 (saliency returns available:False)
+    bad = tmp_path / "x.wav"
+    bad.write_bytes(b"definitely not audio" * 50)
+    with open(bad, "rb") as fh:
+        r = client.post("/api/explain", files={"file": ("x.wav", fh, "audio/wav")})
+    assert r.status_code == 200 and r.json().get("available") is False
+
+
+def test_diagnose_error_does_not_leak_temp_path(client, tmp_path, monkeypatch):
+    # fuzz regression: the error body must not echo the server's temp path
+    import cardiag.web.app as webmod
+    webmod._classifier.cache_clear()
+    monkeypatch.setattr(webmod, "_classifier", lambda: None)
+    bad = tmp_path / "x.wav"
+    bad.write_bytes(b"\x00" * 8)
+    with open(bad, "rb") as fh:
+        r = client.post("/diagnose", files={"file": ("x.wav", fh, "audio/wav")})
+    assert r.status_code == 400
+    err = r.json().get("error", "")
+    assert "/var/folders" not in err and "/tmp" not in err and "/private" not in err
+
+
+def test_saliency_degrades_on_bad_input():
+    # fuzz regression: occlusion_saliency never raises on missing/unreadable audio
+    from cardiag.audio import saliency
+    assert saliency.occlusion_saliency("/no/such/file.wav")["available"] is False

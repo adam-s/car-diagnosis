@@ -232,8 +232,9 @@ async def explain_why(request: Request, file: UploadFile | None = File(None),
         model = os.environ.get("CARDIAG_MODEL")
         res = await run_in_threadpool(_saliency_locked, path, model)
         return JSONResponse(_finite(res))
-    except (ValueError, FileNotFoundError, OSError) as e:
-        return JSONResponse({"error": f"could not explain: {e}"}, status_code=400)
+    except (ValueError, FileNotFoundError, OSError):
+        return JSONResponse({"error": "could not explain this clip — is it valid audio?"},
+                            status_code=400)
     finally:
         if tmp and os.path.exists(tmp):
             os.unlink(tmp)
@@ -271,8 +272,9 @@ async def diagnose(request: Request, file: UploadFile) -> JSONResponse:
         payload["filename"] = file.filename
         payload["model_loaded"] = True
         return JSONResponse(payload)
-    except (ValueError, FileNotFoundError, OSError) as e:
-        return JSONResponse({"error": f"could not process audio: {e}"}, status_code=400)
+    except (ValueError, FileNotFoundError, OSError):   # never echo e — leaks temp paths
+        return JSONResponse({"error": "could not process audio — is it a valid clip?"},
+                            status_code=400)
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)

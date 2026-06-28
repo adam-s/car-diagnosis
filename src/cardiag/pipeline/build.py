@@ -453,6 +453,10 @@ def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
             clf = _new_head().fit(X[tr], y[tr])
             accs.append(balanced_accuracy_score(y[te], clf.predict(X[te])))
     maj = max(Counter(y).values()) / len(y)
+    if not accs:                              # no usable fold (too few videos/classes)
+        return {"cv_bal_acc": None, "cv_bal_acc_std": None, "cv_folds": 0,
+                "majority_acc": round(float(maj), 3), "n_videos": len(set(groups)),
+                "cv_unreliable": "too few videos/classes for a grouped CV estimate"}
     out = {"cv_bal_acc": round(float(np.mean(accs)), 3),
            "cv_bal_acc_std": round(float(np.std(accs)), 3),
            "cv_folds": len(accs), "majority_acc": round(float(maj), 3),
@@ -509,9 +513,12 @@ def _fit(rows, labelf, embed, min_class: int, prune_noisy: float = 0.0):
     always exists. Returns (clf, report, temperature)."""
     from sklearn.dummy import DummyClassifier
 
+    def _real(lbl):                          # drop None / placeholder labels as a class
+        return lbl is not None and str(lbl).strip().lower() not in ("", "none", "nan", "unknown")
+
     dim = len(next(iter(embed.values()))) if embed else 512
     data = [(embed[r["clip_id"]], labelf(r), r.get("video", r["clip_id"]), _source_of(r))
-            for r in rows if labelf(r) is not None and r["clip_id"] in embed]
+            for r in rows if _real(labelf(r)) and r["clip_id"] in embed]
     counts = Counter(lbl for _, lbl, _, _ in data)
     keep = {c for c, n in counts.items() if n >= min_class}
     data = [(x, lbl, g, s) for x, lbl, g, s in data if lbl in keep]
@@ -524,6 +531,8 @@ def _fit(rows, labelf, embed, min_class: int, prune_noisy: float = 0.0):
             "degenerate": True, "classes": sorted(labels), "n": len(data)}, 1.0
 
     X = np.array([x for x, _, _, _ in data])
+    if X.ndim != 2 or not np.isfinite(X).all():
+        raise SystemExit("embeddings are non-finite or ragged — check the CLAP embed step")
     y = np.array([lbl for _, lbl, _, _ in data])
     groups = np.array([g for _, _, g, _ in data])
     sources = np.array([s for _, _, _, s in data])

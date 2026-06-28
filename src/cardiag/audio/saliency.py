@@ -42,26 +42,37 @@ def occlusion_saliency(path, model_path=None, n_time: int = 12, n_freq: int = 6)
     """Return a time × frequency saliency map for the fault/normal verdict on
     ``path``. Each cell is how much *removing* that audio region moves the
     probability toward the verdict (positive = the model leaned on it)."""
+    from pathlib import Path
+
     import librosa
 
     from cardiag.audio.embed import embed_clip, embed_clips
     from cardiag.inference.classifier import Classifier, _usable
-
     clf = Classifier.load(model_path)
     if not _usable(clf.heads["kind"]):
         return {"available": False,
                 "reason": "the fault/normal head is degenerate — nothing to explain"}
 
-    y, _ = librosa.load(str(path), sr=config.SR_CLAP, mono=True)
+    if not Path(path).exists():
+        return {"available": False, "reason": "could not read audio"}
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            y, _ = librosa.load(str(path), sr=config.SR_CLAP, mono=True)
+    except Exception:
+        return {"available": False, "reason": "could not read audio"}
     y = np.nan_to_num(y).astype(np.float32)
     sr = config.SR_CLAP
     if len(y) > int(MAX_S * sr):
         y = y[: int(MAX_S * sr)]
     dur = len(y) / sr
-    if dur < 0.4:
-        return {"available": False, "reason": "clip too short to explain"}
+    if dur < 0.4 or float(np.max(np.abs(y))) < 1e-3:
+        return {"available": False, "reason": "clip too short or near-silent to explain"}
 
     base_p = float(_p_fault_vec(clf, embed_clip(y)[None, :])[0])
+    if not np.isfinite(base_p):
+        return {"available": False, "reason": "nothing to explain for this clip"}
     verdict = "fault" if base_p >= 0.5 else "normal"
 
     D = librosa.stft(y, n_fft=_N_FFT, hop_length=_HOP)        # (F_bins, T_frames)

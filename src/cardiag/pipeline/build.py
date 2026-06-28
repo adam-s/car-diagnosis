@@ -68,6 +68,14 @@ def _clap():
     return Clap()
 
 
+def _require(tool: str, fix: str) -> None:
+    """Fail fast with a clear message if an external tool is missing (so a fresh
+    clone gets 'install yt-dlp', not a raw FileNotFoundError mid-scrape)."""
+    import shutil
+    if not shutil.which(tool):
+        raise SystemExit(f"'{tool}' not found on PATH — {fix}")
+
+
 def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap) -> list[dict]:
     """Cascade + CLAP-gate one local audio file into labeled clip records.
 
@@ -170,6 +178,8 @@ def scrape_youtube(per_query: int = 3, max_videos: int = 40) -> int:
     from cardiag.ingest.youtube import discover
     from cardiag.ingest.youtube.pipeline import acquire
 
+    _require("yt-dlp", "pip install -e '.[scrape]'")
+    _require("ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")
     paths.ensure_data_dirs()
     discover.main(per_query)
     work = json.loads((paths.YT_DATA / "worklist.json").read_text())
@@ -196,6 +206,8 @@ def scrape_reddit(pages: int = 2, max_posts: int = 60) -> int:
     """Scrape r/MechanicAdvice-style posts (yt-dlp audio), clean + label each."""
     from cardiag.ingest.reddit import scrape as reddit
 
+    _require("yt-dlp", "pip install -e '.[scrape]'")
+    _require("ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")
     paths.ensure_data_dirs()
     reddit.main(pages)                                # -> posts.jsonl + audio/*.wav
     posts_f = paths.REDDIT_DATA / "posts.jsonl"
@@ -221,10 +233,12 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
     """Discover fault clips via the stealth browser, download + label each.
 
     Needs the stealth browser: `pip install -e .[scrape]` then
-    `patchright install chromium`. TikTok anti-bot may block headless runs.
+    `python -m camoufox fetch`. TikTok anti-bot may block headless runs.
     """
     from cardiag.ingest.tiktok.discover import PROBLEM_QUERIES
 
+    _require("yt-dlp", "pip install -e '.[scrape]'")
+    _require("ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")
     paths.ensure_data_dirs()
     queries = PROBLEM_QUERIES[:n_queries]
 

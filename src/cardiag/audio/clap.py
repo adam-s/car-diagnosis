@@ -70,14 +70,14 @@ def embed_windows(path, sr: int = config.SR_CLAP, win_s: float = 10.0):
     import librosa
     if not Path(path).exists():
         raise FileNotFoundError(f"no such audio file: {path}")
-    clap = Clap()
-    try:
+    try:                                    # probe readability BEFORE loading CLAP
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             dur = librosa.get_duration(path=str(path))
     except Exception as e:
         raise ValueError(f"could not read audio from {path} — is it a valid "
                          f"audio file? ({type(e).__name__})") from None
+    clap = Clap()
     offs = [0.0] if dur <= win_s else [0.0, (dur - win_s) / 2, dur - win_s][:3]
     vecs = []
     for off in offs:

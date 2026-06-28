@@ -34,7 +34,17 @@ def _check_import(mod, extra):
         import_module(mod)
         return OK, "installed", ""
     except Exception:
-        return BAD, "missing", f"pip install -e '.[{extra}]'"
+        fix = f"pip install -e '.[{extra}]'" if extra else "pip install -e ."
+        return BAD, "missing", fix
+
+
+def _check_web():
+    try:
+        import_module("fastapi")
+        import_module("uvicorn")
+        return OK, "installed", ""
+    except Exception:
+        return WARN, "not installed", "needed for `cardiag serve`: pip install -e '.[web]'"
 
 
 def _check_clap_cache():
@@ -106,6 +116,7 @@ CHECKS = [
     ("camoufox (scraping)", _check_camoufox),
     ("playwright pin", _check_playwright),
     ("matplotlib (inspect)", lambda: _check_import("matplotlib", "viz")),
+    ("fastapi (serve)", _check_web),
     ("trained model", _check_model),
     ("disk space", _check_disk),
 ]

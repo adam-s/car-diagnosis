@@ -13,6 +13,7 @@ scraping commands don't pay for torch/CLAP.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 
 import typer
 
@@ -36,13 +37,14 @@ def _nudge(*lines: str) -> None:
         c.print(f"  [dim]→ {ln}[/dim]")
 
 
-def _load_or_exit(loader):
-    """Load a model, but turn a missing-model FileNotFoundError into a clean,
-    actionable message (no scary traceback for a beginner)."""
+@contextmanager
+def _friendly_errors():
+    """Turn expected failures (missing/unreadable audio, missing/invalid model)
+    into a clean one-line message + exit code 1 — never a scary traceback."""
     from rich.console import Console
     try:
-        return loader()
-    except FileNotFoundError as e:
+        yield
+    except (FileNotFoundError, ValueError, IsADirectoryError, OSError) as e:
         Console(stderr=True).print(f"[yellow]{e}[/yellow]")
         raise typer.Exit(1) from None
 
@@ -78,8 +80,9 @@ def diagnose(
 ):
     """Diagnose a recording with the full model (fault / knock / cause)."""
     from cardiag import Classifier
-    clf = _load_or_exit(lambda: Classifier.load(model))
-    result = clf.diagnose(audio, clean_audio=not no_clean)
+    with _friendly_errors():
+        clf = Classifier.load(model)
+        result = clf.diagnose(audio, clean_audio=not no_clean)
     if as_json:
         print(json.dumps(result.to_dict(), indent=1))
     else:
@@ -96,7 +99,8 @@ def triage(
 ):
     """Coarse engine-vs-running-gear call with a calibrated confidence band."""
     from cardiag import TriageClassifier
-    result = _load_or_exit(lambda: TriageClassifier.load(model)).triage(audio)
+    with _friendly_errors():
+        result = TriageClassifier.load(model).triage(audio)
     if as_json:
         print(json.dumps(result.to_dict(), indent=1))
         return
@@ -120,13 +124,16 @@ def clean(
     out: str | None = typer.Option(None, help="Write isolated audio to this WAV."),
 ):
     """Isolate the mechanical sound (remove music / voice / static). No model."""
+    import sys
+
     from cardiag import clean as clean_fn
-    res = clean_fn(audio, music_gate=not no_music_gate)
-    print(json.dumps(res.to_dict(), indent=1))
+    with _friendly_errors():
+        res = clean_fn(audio, music_gate=not no_music_gate)
+    print(json.dumps(res.to_dict(), indent=1))      # stdout: machine-readable
     if out and not res.is_empty:
         import soundfile as sf
         sf.write(out, res.merged_audio(), res.sr)
-        print(f"wrote {res.kept_seconds}s of isolated audio -> {out}")
+        print(f"wrote {res.kept_seconds}s of isolated audio -> {out}", file=sys.stderr)
     _nudge(f"diagnose what was isolated:  cardiag diagnose {audio}",
            f"see it visually:  cardiag inspect {audio} -o report.html")
 
@@ -134,7 +141,8 @@ def clean(
 @app.command()
 def inspect(
     audio: list[str] = typer.Argument(None, help="Clip(s) to inspect."),
-    sample: int = typer.Option(0, help="Instead, sample N clips from data/*/clips."),
+    sample: int = typer.Option(0, min=0, max=200,
+                               help="Instead, sample N clips from data/*/clips."),
     out: str = typer.Option("report.html", "-o", "--out", help="Output HTML file."),
     no_clap: bool = typer.Option(False, "--no-clap", help="Skip CLAP scores (faster)."),
 ):
@@ -144,19 +152,21 @@ def inspect(
     files = list(audio or [])
     if sample:
         files += [str(p) for p in inspect_mod.sample_clips(sample)]
-    p = inspect_mod.report(files, out_path=out, with_clap=not no_clap)
+    with _friendly_errors():
+        p = inspect_mod.report(files, out_path=out, with_clap=not no_clap)
     _nudge(f"open it in your browser:  open {p}   (file://{p})")
 
 
 @app.command()
 def gallery(
     out: str = typer.Option("gallery.html", "-o", "--out"),
-    limit: int = typer.Option(120, help="Max clips to include."),
+    limit: int = typer.Option(120, min=1, max=2000, help="Max clips to include."),
 ):
     """Render an audio-playable grid of the scraped corpus grouped by sound-type,
     so you can listen to clips and judge the labels yourself."""
     from cardiag import inspect as inspect_mod
-    p = inspect_mod.gallery(out_path=out, limit=limit)
+    with _friendly_errors():
+        p = inspect_mod.gallery(out_path=out, limit=limit)
     _nudge(f"open it in your browser:  open {p}   (file://{p})")
 
 
@@ -166,12 +176,28 @@ def serve(
     port: int = typer.Option(8000),
     model: str | None = typer.Option(None),
 ):
-    """Launch the local web upload app."""
+    """Launch the local web upload app (binds 127.0.0.1; no auth)."""
     import os
     if model:
         os.environ["CARDIAG_MODEL"] = model
-    import uvicorn
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        from rich.console import Console
+        Console(stderr=True).print(
+            f"[bold red]⚠ exposing cardiag on {host} with NO authentication[/bold red] "
+            f"— anyone who can reach this host can upload files and run inference.")
+    try:
+        import uvicorn
+    except ImportError:
+        raise typer.Exit(code=_missing("cardiag serve", "web")) from None
     uvicorn.run("cardiag.web.app:app", host=host, port=port)
+
+
+def _missing(what: str, extra: str) -> int:
+    from rich.console import Console
+    Console(stderr=True).print(
+        f"[yellow]{what} needs the [{extra}] extra: "
+        f"pip install -e '.[{extra}]'[/yellow]")
+    return 1
 
 
 @app.command()

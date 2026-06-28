@@ -119,13 +119,20 @@ def serve(
 
 @app.command()
 def scrape(
-    platform: str = typer.Argument(..., help="youtube | tiktok | reddit"),
+    platform: str = typer.Argument("youtube", help="youtube | tiktok | reddit"),
+    per_query: int = typer.Option(3, help="(youtube) videos per search query."),
+    max_videos: int = typer.Option(40, help="(youtube) cap on videos processed."),
     pages: int = typer.Option(12, help="(reddit) pages per feed."),
 ):
-    """Discover and download fault-sound clips from a platform."""
+    """Discover, download, and clean fault-sound clips into a labeled corpus.
+
+    YouTube is the self-contained reference path (no LLM, no external data):
+    it discovers fault+normal videos, runs the cleaning cascade + CLAP, and
+    writes data/youtube/corpus.jsonl ready for `cardiag train`.
+    """
     if platform == "youtube":
-        from cardiag.ingest.youtube import discover
-        discover.main()
+        from cardiag.pipeline import build
+        build.scrape_youtube(per_query=per_query, max_videos=max_videos)
     elif platform == "tiktok":
         from cardiag.ingest.tiktok import discover
         discover.main()
@@ -137,10 +144,24 @@ def scrape(
 
 
 @app.command()
-def train():
-    """Train the linear heads over frozen CLAP embeddings."""
-    from cardiag.training.models import train_best
-    train_best.main()
+def train(min_class: int = typer.Option(2, help="Min samples per class to keep.")):
+    """Embed the scraped corpus with CLAP and train the fault/knock/cause +
+    triage models into data/training/."""
+    from cardiag.pipeline import build
+    build.train(min_class=min_class)
+
+
+@app.command()
+def demo(
+    per_query: int = typer.Option(1, help="Videos per query (keep small)."),
+    max_videos: int = typer.Option(18, help="Cap on videos processed."),
+):
+    """The whole loop from nothing: scrape -> clean -> train -> diagnose.
+
+    For a fresh clone with no data and no model. Takes a few minutes (downloads
+    a handful of clips + the CLAP weights on first run)."""
+    from cardiag.pipeline import build
+    build.demo(per_query=per_query, max_videos=max_videos)
 
 
 @app.command()

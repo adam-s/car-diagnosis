@@ -66,17 +66,35 @@ and at inference, so an uploaded clip is processed exactly like a training clip 
 music, voice, and static stripped, leaving only the mechanical sound. See
 [`docs/`](docs/) for the full design and Mermaid diagrams.
 
-## Install
+## Quickstart — clone to inference, from nothing
+
+No clips and no model are bundled (this repo *teaches the loop by running it*). A
+fresh clone builds its own model from scratch:
 
 ```bash
 git clone https://github.com/adamsohn/car-diagnosis && cd car-diagnosis
 uv venv --python 3.11 && source .venv/bin/activate
-uv pip install -e ".[web,dev]"     # add "scrape" for the corpus pipeline
+uv pip install -e ".[scrape,web,dev]"
+
+cardiag demo                 # scrape → clean → train → diagnose, end to end
 ```
 
-Requires Python 3.11. A trained model (`best_model_clap.joblib`) is needed for
-`diagnose`/`triage`; build one with `cardiag train` after scraping, or point
-`CARDIAG_DATA` at an existing `data/training/` directory.
+`cardiag demo` discovers a handful of fault + normal videos on YouTube, downloads
+and cleans them, CLAP-embeds the clips, trains the models into `data/training/`,
+and diagnoses one — proving the whole pipeline on your machine in a few minutes.
+It needs only `yt-dlp` + CLAP (downloaded on first use) — **no LLM, no external
+datasets, no API keys.**
+
+Then run it for real (more clips → a better model):
+
+```bash
+cardiag scrape youtube --per-query 5 --max-videos 200
+cardiag train
+cardiag diagnose some_clip.wav
+```
+
+Requires Python 3.11. (`docs/` describes the fuller research pipeline — LLM label
+fusion + verified external anchors — that produces the higher-fidelity model.)
 
 ## Usage
 

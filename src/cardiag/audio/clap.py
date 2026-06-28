@@ -66,34 +66,3 @@ class Clap:
             v = e[0].cpu().numpy()
             embs.append(v / (np.linalg.norm(v) + 1e-9))
         return np.array(embs)
-
-
-def embed_windows(path, sr: int = config.SR_CLAP, win_s: float = 10.0):
-    """Mean CLAP embedding over up to 3 windows of a file (light TTA for
-    stability). Used by inference. Returns a single L2-normalized 512-d vector."""
-    import warnings
-    from pathlib import Path
-
-    import librosa
-    if not Path(path).exists():
-        raise FileNotFoundError(f"no such audio file: {path}")
-    try:                                    # probe readability BEFORE loading CLAP
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            dur = librosa.get_duration(path=str(path))
-    except Exception as e:
-        raise ValueError(f"could not read audio from {path} — is it a valid "
-                         f"audio file? ({type(e).__name__})") from None
-    clap = Clap()
-    offs = [0.0] if dur <= win_s else [0.0, (dur - win_s) / 2, dur - win_s][:3]
-    vecs = []
-    for off in offs:
-        y, _ = librosa.load(str(path), sr=sr, mono=True, offset=max(0.0, off),
-                            duration=win_s)
-        if len(y) < sr // 2:
-            continue
-        vecs.append(clap.embed([y], sr=sr)[0])
-    if not vecs:
-        raise ValueError(f"no usable audio in {path}")
-    v = np.mean(vecs, 0)
-    return v / (np.linalg.norm(v) + 1e-9)

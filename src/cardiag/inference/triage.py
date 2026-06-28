@@ -16,7 +16,7 @@ import joblib
 import numpy as np
 
 from cardiag import paths
-from cardiag.audio.clap import embed_windows
+from cardiag.audio.embed import model_vectors
 from cardiag.types import Band, TriageResult
 
 _PLAIN = {
@@ -73,7 +73,6 @@ class TriageClassifier:
             ) from None
 
     def triage(self, path) -> TriageResult:
-        x = embed_windows(path)
         real = [str(c).lower() for c in self.classes
                 if str(c).lower() not in {"unknown", "none", "nan", ""}]
         if len(real) < 2:                       # degenerate model -> don't pretend
@@ -84,7 +83,10 @@ class TriageClassifier:
                 confidence=0.0, band=Band.ABSTAIN,
                 band_gloss="triage model is degenerate — not a real call",
                 probabilities={}, next_step="")
-        p = self.model.predict_proba([x])[0]
+        # one vector per isolated span (same embedding as training), pooled in
+        # probability space — no train/serve skew. See cardiag.audio.embed.
+        X = model_vectors(path).vectors
+        p = np.asarray(self.model.predict_proba(X)).mean(0)
         i = int(p.argmax())
         label = str(self.classes[i])
         conf = float(p[i])

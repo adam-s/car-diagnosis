@@ -56,9 +56,11 @@ def test_degenerate_kind_head_yields_uncertain(tmp_path, monkeypatch):
     build._train_heads(rows, embed, min_class=2, cause_fn=lambda r: r.get("cause"))
 
     from cardiag import Classifier, Verdict
+    from cardiag.audio.embed import EmbedResult
     clf = Classifier.load()
     vec = rng.standard_normal(512)
-    monkeypatch.setattr("cardiag.inference.classifier.embed_windows", lambda *a, **k: vec)
+    monkeypatch.setattr("cardiag.inference.classifier.model_vectors",
+                        lambda *a, **k: EmbedResult(vectors=vec[None, :]))
     d = clf.diagnose("x.wav", clean_audio=False)
     assert d.verdict is Verdict.UNCERTAIN          # NOT a confident FAULT
     assert "single class" in d.note

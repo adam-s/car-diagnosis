@@ -18,8 +18,7 @@ import joblib
 import numpy as np
 
 from cardiag import paths
-from cardiag.audio.clap import Clap, embed_windows
-from cardiag.audio.clean import clean
+from cardiag.audio.embed import model_vectors
 from cardiag.types import Cause, Diagnosis, Verdict
 
 CAUSE_HELP = {
@@ -34,8 +33,16 @@ CAUSE_HELP = {
 _FAULT_HI, _FAULT_LO = 0.6, 0.4
 
 
-def _proba(clf, x) -> dict:
-    return dict(zip(clf.classes_, clf.predict_proba([x])[0]))
+def _proba(clf, X) -> dict:
+    """Mean class probability over every span vector of one recording.
+
+    Pooling happens here, in probability space — each row of ``X`` is a single
+    in-distribution span embedding, scored independently, then averaged. We never
+    average the embeddings themselves (that would be a vector the head never saw
+    at fit time — the train/serve skew this design avoids).
+    """
+    P = np.asarray(clf.predict_proba(X))
+    return dict(zip(clf.classes_, P.mean(0)))
 
 
 _SENTINELS = {"unknown", "none", "nan", ""}
@@ -78,35 +85,25 @@ class Classifier:
             ) from None
         return cls(heads)
 
-    def _embed(self, path, *, clean_audio: bool):
-        """Clean the clip then embed the isolated mechanical audio. Falls back to
-        windowed embedding of the whole file when cleaning isolates nothing."""
-        segments = []
-        if clean_audio:
-            res = clean(path)
-            segments = res.segments
-            if res.isolated:
-                vecs = Clap().embed(res.isolated, sr=res.sr)
-                v = vecs.mean(0)
-                return v / (np.linalg.norm(v) + 1e-9), segments, res
-            res_for_note = res
-        else:
-            res_for_note = None
-        return embed_windows(path), segments, res_for_note
-
     def diagnose(self, path, *, clean_audio: bool = True) -> Diagnosis:
         """Diagnose ``path``: clean -> embed -> heads -> :class:`Diagnosis`.
+
+        The clip becomes one vector per isolated span — each embedded exactly as a
+        training clip was (:func:`cardiag.audio.embed.model_vectors`) — and every
+        head's probabilities are pooled across those spans. Train and serve feed
+        the heads the same kind of vector, so there is no train/serve skew.
 
         Honest about degenerate heads: a head trained on a single class (or on a
         placeholder label) carries no information, so we never present its output
         as a confident verdict/cause — we downgrade to UNCERTAIN and say so.
         """
-        x, segments, res = self._embed(path, clean_audio=clean_audio)
+        ev = model_vectors(path, clean_audio=clean_audio)
+        X, segments, res = ev.vectors, ev.segments, ev.clean_result
         notes = []
 
         # --- fault/normal -----------------------------------------------------
         if _usable(self.heads["kind"]):
-            p_fault = float(_proba(self.heads["kind"], x).get("fault", 0.0))
+            p_fault = float(_proba(self.heads["kind"], X).get("fault", 0.0))
             verdict = (Verdict.FAULT if p_fault >= _FAULT_HI else
                        Verdict.NORMAL if p_fault <= _FAULT_LO else Verdict.UNCERTAIN)
         else:
@@ -116,12 +113,12 @@ class Classifier:
 
         # --- engine knock -----------------------------------------------------
         knock_classes = set(getattr(self.heads["knock"], "classes_", []))
-        p_knock = (float(_proba(self.heads["knock"], x).get("knock", 0.0))
+        p_knock = (float(_proba(self.heads["knock"], X).get("knock", 0.0))
                    if "knock" in knock_classes else 0.0)
 
         # --- cause ------------------------------------------------------------
         if _usable(self.heads["cause"]):
-            cause = _proba(self.heads["cause"], x)
+            cause = _proba(self.heads["cause"], X)
             topk = sorted(cause.items(), key=lambda kv: -kv[1])[:3]
             causes = [Cause(part=k, p=round(float(v), 3), note=CAUSE_HELP.get(k, ""))
                       for k, v in topk]

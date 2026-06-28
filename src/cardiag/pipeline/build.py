@@ -475,13 +475,15 @@ def train(min_class: int = 2) -> dict:
             f"(try a larger --per-query / --max-videos).")
 
     print(f"embedding {len(rows)} clips with CLAP…", flush=True)
-    clap = _clap()
+    # A corpus clip is already one isolated span, so it becomes one vector via the
+    # SAME embed_clip() inference uses per span — train/serve share the contract.
+    from cardiag.audio.embed import embed_clip
     embed: dict[str, np.ndarray] = {}
     for r in _progress(rows, "embedding clips"):
         y, _ = librosa.load(r["wav"], sr=config.SR_CLAP, mono=True)
         if len(y) < config.SR_CLAP // 2:
             continue
-        embed[r["clip_id"]] = clap.embed([y])[0]
+        embed[r["clip_id"]] = embed_clip(y)
     return _train_heads(rows, embed, min_class, _cause_of)
 
 

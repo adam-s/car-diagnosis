@@ -14,6 +14,16 @@ All notable changes to this project are documented here. Format loosely follows
 - Bundled fixture embeddings for offline training/tests; snapshot regression
   harness; robustness + honesty test suites. ruff + mypy + pre-commit + CI.
 
+### Changed
+- **Train/serve embedding skew removed.** Training and inference now share one
+  embedding contract (`cardiag.audio.embed`): every vector a head sees — a corpus
+  clip at train time, an isolated span at serve time — is the *same* single-span
+  `embed_clip()` output. Multi-span recordings are pooled in **probability space**
+  (mean of each head's `predict_proba` over spans) instead of by averaging
+  embeddings, which produced a renormalized vector the scaler/LogReg never saw at
+  fit time. `triage` now cleans + pools like `diagnose` (previously embedded the
+  whole raw file). New `tests/test_embedding_contract.py` locks the invariant.
+
 ### Fixed (hardening pass)
 - **Data loss:** a flaky/zero-yield re-scrape no longer truncates the corpus —
   `corpus.jsonl` is now written atomically and merged (deduped by clip id).

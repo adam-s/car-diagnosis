@@ -67,12 +67,18 @@ def fixture_model(tmp_path):
 
 @pytest.fixture
 def fixed_embedding(monkeypatch):
-    """Patch the classifier's embedding so diagnose() is deterministic and
-    CLAP-free. Returns the vector used."""
+    """Patch the shared embedding contract so diagnose()/triage() are
+    deterministic and CLAP-free. Returns one span vector through model_vectors()
+    (the single seam train and serve share). Returns the vector used."""
+    from cardiag.audio.embed import EmbedResult
+
     vec = np.random.default_rng(7).standard_normal(512)
     vec = vec / np.linalg.norm(vec)
-    monkeypatch.setattr("cardiag.inference.classifier.embed_windows",
-                        lambda *a, **k: vec)
-    monkeypatch.setattr("cardiag.inference.triage.embed_windows",
-                        lambda *a, **k: vec)
+
+    def _fake(path, **k):
+        return EmbedResult(vectors=vec[None, :], segments=[], clean_result=None,
+                           source="windows")
+
+    monkeypatch.setattr("cardiag.inference.classifier.model_vectors", _fake)
+    monkeypatch.setattr("cardiag.inference.triage.model_vectors", _fake)
     return vec

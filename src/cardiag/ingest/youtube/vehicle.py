@@ -57,7 +57,8 @@ def main(vids=None, batch=20):
         metas = [m for m in pool.map(fetch_meta, vids) if m]
     for i in range(0, len(metas), batch):
         for r in haiku_extract(metas[i:i + batch]):
-            known[r["id"]] = r
+            if r.get("id"):                 # guard: skip malformed LLM rows
+                known[r["id"]] = r
         print(f"  {min(i+batch, len(metas))}/{len(metas)}")
     OUT.write_text(json.dumps(known, indent=2))
 

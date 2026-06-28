@@ -41,7 +41,6 @@ def main(platform):
         with torch.no_grad():
             pr = m(**inp).logits_per_audio.softmax(-1).cpu().numpy()
         for f, row in zip(chunk, pr):
-            cid = Path(f).parent.name + "_" + Path(f).stem.replace("b", "").replace("clip_", "")
             # clip_id in the ledger is "<video>_NN"; rebuild from path
             vid = Path(f).parent.name
             nn = "".join(ch for ch in Path(f).stem if ch.isdigit())

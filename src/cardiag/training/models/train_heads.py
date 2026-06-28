@@ -83,7 +83,9 @@ def eval_head(clf, X, y, ks=(1, 3)):
 
 def main():
     z = np.load(OUT / "clap_embeddings.npz", allow_pickle=True)
-    emb = dict(zip(z["ids"], z["X"]))
+    # L2-normalize to match train_best.py + the inference path (classifier.py);
+    # otherwise these heads train in a different feature space than deployment.
+    emb = {i: v / (np.linalg.norm(v) + 1e-9) for i, v in zip(z["ids"], z["X"])}
     train = load_split("train", emb)
     val = load_split("val", emb)
     test = load_split("test", emb)
@@ -111,7 +113,8 @@ def main():
         ablation[key] = {"n_train": len(ytr),
                          "val_default": eval_head(clf, Xv, yv),
                          "val_balanced": eval_head(clf_bal, Xv, yv)}
-        if ablation[key]["val_default"]["top1"] > best["top1"]:
+        if ablation[key]["val_default"] and \
+                ablation[key]["val_default"]["top1"] > best["top1"]:
             best = {"clf": clf, "clf_bal": clf_bal, "key": key,
                     "top1": ablation[key]["val_default"]["top1"]}
     rep["cause_tier_ablation"] = ablation

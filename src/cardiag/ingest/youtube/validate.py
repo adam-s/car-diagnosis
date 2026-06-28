@@ -14,7 +14,6 @@ Fable is NOT used here — it audits the final gold sample once, by hand.
 import json
 import subprocess
 from collections import Counter
-from pathlib import Path
 
 import librosa
 import numpy as np
@@ -35,7 +34,7 @@ EXPECT = {
 def load_auto():
     recs = [json.loads(l) for l in open(paths.YT_DATA / "corpus.jsonl")]
     return [r for r in recs if r["status"] == "auto" and r["l1"] != "shop_tool"
-            and r.get("file") and Path(r["file"]).exists()]
+            and r.get("file") and paths.resolve_clip(r["file"]).exists()]
 
 
 def check_fft(recs):
@@ -54,7 +53,8 @@ def check_fft(recs):
 
 
 def check_clusters(recs, clap):
-    clips = [librosa.load(r["file"], sr=config.SR_CLAP, mono=True)[0] for r in recs]
+    clips = [librosa.load(str(paths.resolve_clip(r["file"])), sr=config.SR_CLAP,
+                          mono=True)[0] for r in recs]
     embs = clap.embed(clips)
     labels = [r["l1"] for r in recs]
     sim = embs @ embs.T

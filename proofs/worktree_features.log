@@ -1,0 +1,47 @@
+HEAD is now at b384151 novice UX: cardiag gallery (audio-playable corpus grid by sound-type)
+=== fresh venv + install [scrape,web,dev,viz] ===
+ + yt-dlp==2026.6.9
+Current version: v135.0.1-beta.24
+=== lint + type (clean checkout) ===
+All checks passed!
+Success: no issues found in 7 source files
+=== full test suite (offline) ===
+42 passed, 3 deselected, 6 warnings in 38.91s
+=== [1] cardiag doctor ===
+  ✓ python                 Python 3.11.15
+  ✓ ffmpeg                 /usr/local/bin/ffmpeg
+  ✓ yt-dlp                 
+  ✓ torch/transformers     installed
+  ✓ librosa                installed
+  ✓ scikit-learn           installed
+  ✓ CLAP weights           CLAP weights cached
+  ✓ camoufox (scraping)    camoufox + Firefox ready
+  ✓ playwright pin         playwright 1.51.0
+  ✓ matplotlib (inspect)   installed
+  · trained model          no trained model yet
+  ✓ disk space             208 GB free
+All set. Try cardiag train --fixtures then cardiag diagnose <clip.wav>.
+=== [2] offline train --fixtures (no network, no CLAP) ===
+=== training report ===
+saved model -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/data/training/best_model_clap.joblib
+
+real	0m1.186s
+user	0m1.035s
+sys	0m0.135s
+model present ✓
+=== [3] real 3-source demo (scrape -> clean -> train -> diagnose) ===
+youtube: 0 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/data/youtube/corpus.jsonl
+reddit: 20 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/data/reddit/corpus.jsonl
+tiktok: 11 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/data/tiktok/corpus.jsonl
+scraped: {'youtube': 0, 'reddit': 20, 'tiktok': 11}
+ "verdict": "fault",
+ "fault_probability": 1.0,
+✓ loop complete: scraped (3 sources), cleaned, trained, diagnosed from scratch.
+=== [4] inspect HTML report (sample from scraped corpus) ===
+wrote inspection report for 3 clip(s) -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/report.html
+report.html:  3271136 bytes ✓
+=== [5] gallery HTML ===
+wrote gallery of 31 clips (7 sound-types) -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_features/gallery.html
+gallery.html:  19732941 bytes ✓
+FEATURES_EXIT=0
+WT_FEATURES_SCRIPT_EXIT=0

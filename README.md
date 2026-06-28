@@ -107,15 +107,22 @@ platform (a browser can't extract signed CDN media).
 ## Usage
 
 ```bash
+cardiag doctor                       # preflight: what's installed, what to fix
+cardiag train --fixtures             # train a model OFFLINE in ~1.5s (no scrape)
 cardiag diagnose clip.wav            # full model: verdict + knock + ranked causes
 cardiag triage   clip.wav            # calibrated engine-vs-running-gear
 cardiag clean    clip.wav            # isolate the mechanical sound (no model needed)
+cardiag inspect  clip.wav -o r.html  # SEE/HEAR the pipeline: spans, spectrograms, scores
+cardiag gallery  -o gallery.html     # audio grid of your corpus, grouped by sound-type
 cardiag serve                        # local drag-and-drop web app at :8000
 cardiag scrape   youtube|tiktok|reddit
 cardiag train
 ```
 
-Add `--json` to any inference command for machine-readable output.
+Add `--json` to any inference command for machine-readable output. New to the
+project? Run `cardiag doctor`, then `cardiag train --fixtures && cardiag inspect
+<clip>` to see the whole thing without scraping — and read
+[docs/WALKTHROUGH.md](docs/WALKTHROUGH.md).
 
 ## Package layout
 

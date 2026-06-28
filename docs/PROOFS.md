@@ -1,5 +1,27 @@
 # Verification & Proofs
 
+## Novice-UX features verified in a clean worktree
+
+Built for a beginner to clone, run, and *understand* the process — all verified
+end-to-end in a fresh `git worktree` (`proofs/worktree_features.log`,
+`FEATURES_EXIT=0`):
+
+| Feature | What it gives a beginner | Verified |
+|---|---|---|
+| `cardiag doctor` | preflight that prints the exact fix for anything missing | all checks green |
+| `cardiag train --fixtures` | a real model **offline in ~1.5s** (no scrape, no 2GB CLAP) | model written |
+| `cardiag inspect` | HTML showing isolated spans, spectrograms, CLAP "why this label", before/after audio | 3.2 MB report |
+| `cardiag gallery` | audio-playable grid of the corpus grouped by sound-type | 31 clips, 7 types |
+| snapshot tests | golden files catch pipeline behavior drift instantly | 3 snapshots stable |
+| ruff + mypy + CI | clean engineered surface; CI runs an offline fixtures-train | both clean |
+| [WALKTHROUGH.md](WALKTHROUGH.md) | one clip traced through every stage with real numbers | — |
+
+Same run also did the real 3-source `cardiag demo` (Reddit + TikTok via Camoufox)
+→ train → diagnose from scratch. 43-test suite, ruff, and mypy all green on the
+clean checkout.
+
+---
+
 ## Fresh-clone acceptance test (git worktree, no data, no model)
 
 The headline proof: a developer who clones this with **nothing** can scrape →

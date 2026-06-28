@@ -63,7 +63,7 @@ Tracked through the scorecard with a Nadeau–Bengio corrected-t significance ga
 | CLAP zero-shot relabeling of causes | **hurts** (zero-shot only 17.5% agrees with keyword labels) |
 | Temperature-scaled calibration | **adopted** — large ECE reduction, decision-preserving |
 | Refit shipped model on 100% of data | **adopted** — was discarding 25% |
-| Label denoising (confident learning) | **promising** (held-out balAcc +0.04–0.06; see scorecard history) |
+| **Label denoising** (confident-learning prune, per-source) | **the one consistent signal** — kind +0.063 (p≈0.09), triage +0.049; no help on cause. Borderline, so documented as the validated *direction* (label quality is the lever), not yet shipped as a default. |
 
 **The binding constraint is data, not model architecture.** The levers that move
 held-out accuracy are: scraping `normal` clips from TikTok/Reddit (breaks the

@@ -121,24 +121,23 @@ def serve(
 def scrape(
     platform: str = typer.Argument("youtube", help="youtube | tiktok | reddit"),
     per_query: int = typer.Option(3, help="(youtube) videos per search query."),
-    max_videos: int = typer.Option(40, help="(youtube) cap on videos processed."),
-    pages: int = typer.Option(12, help="(reddit) pages per feed."),
+    max_videos: int = typer.Option(40, help="(youtube/tiktok) cap on videos."),
+    pages: int = typer.Option(2, help="(reddit) pages per feed."),
 ):
     """Discover, download, and clean fault-sound clips into a labeled corpus.
 
-    YouTube is the self-contained reference path (no LLM, no external data):
-    it discovers fault+normal videos, runs the cleaning cascade + CLAP, and
-    writes data/youtube/corpus.jsonl ready for `cardiag train`.
+    All three sources funnel through one cleaning + CLAP-labeling path and write
+    data/<platform>/corpus.jsonl ready for `cardiag train` (no LLM, no external
+    data). YouTube runs both fault and normal queries; Reddit and TikTok add
+    fault clips. TikTok needs the stealth browser (`patchright install chromium`).
     """
+    from cardiag.pipeline import build
     if platform == "youtube":
-        from cardiag.pipeline import build
         build.scrape_youtube(per_query=per_query, max_videos=max_videos)
-    elif platform == "tiktok":
-        from cardiag.ingest.tiktok import discover
-        discover.main()
     elif platform == "reddit":
-        from cardiag.ingest.reddit import scrape as rscrape
-        rscrape.main(pages)
+        build.scrape_reddit(pages=pages, max_posts=max_videos)
+    elif platform == "tiktok":
+        build.scrape_tiktok(max_videos=max_videos)
     else:
         raise typer.BadParameter("platform must be youtube, tiktok, or reddit")
 

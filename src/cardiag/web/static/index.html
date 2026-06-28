@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>cardiag — diagnose a car fault from its sound</title>
+  <style>
+    :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3;
+            --dim:#8b949e; --red:#f85149; --green:#3fb950; --yellow:#d29922;
+            --cyan:#58a6ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+           font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .wrap { max-width:680px; margin:0 auto; padding:48px 20px; }
+    h1 { font-size:26px; margin:0 0 4px; }
+    .sub { color:var(--dim); margin:0 0 28px; }
+    .drop { border:2px dashed var(--line); border-radius:14px; padding:40px 20px;
+            text-align:center; cursor:pointer; transition:.15s; background:var(--card); }
+    .drop:hover, .drop.over { border-color:var(--cyan); background:#1b2230; }
+    .drop input { display:none; }
+    .hint { color:var(--dim); font-size:13px; margin-top:8px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+            padding:22px 24px; margin-top:24px; display:none; }
+    .verdict { font-size:20px; font-weight:700; }
+    .bar-row { display:flex; align-items:center; gap:10px; margin:6px 0; }
+    .bar { height:10px; border-radius:6px; background:var(--cyan); }
+    .track { flex:1; height:10px; border-radius:6px; background:#21262d; overflow:hidden; }
+    .part { width:150px; color:var(--dim); }
+    .pct { width:46px; text-align:right; font-variant-numeric:tabular-nums; }
+    .note { color:var(--dim); font-size:13px; margin-top:14px; border-top:1px solid var(--line);
+            padding-top:12px; }
+    .spinner { display:none; color:var(--dim); margin-top:20px; }
+    .chip { display:inline-block; font-size:12px; padding:2px 8px; border-radius:20px;
+            border:1px solid var(--line); color:var(--dim); margin-right:6px; }
+    code { color:var(--cyan); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>cardiag</h1>
+    <p class="sub">Upload a car-sound clip. It is cleaned (music / voice / static removed) and diagnosed locally.</p>
+
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="audio/*,.wav,.mp3,.m4a,.ogg" />
+      <div><strong>Drop an audio clip</strong> or click to choose</div>
+      <div class="hint">.wav / .mp3 / .m4a — the file never leaves your machine</div>
+    </label>
+
+    <div class="spinner" id="spinner">Cleaning and diagnosing…</div>
+
+    <div class="card" id="result">
+      <div class="verdict" id="verdict"></div>
+      <div id="knock" style="color:var(--red);margin:6px 0;font-weight:600;"></div>
+      <div style="margin:14px 0 6px;color:var(--dim);">Most likely cause (suggestive, not definitive):</div>
+      <div id="causes"></div>
+      <div id="segments" style="margin-top:12px;color:var(--dim);font-size:13px;"></div>
+      <div class="note" id="note"></div>
+    </div>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileEl = document.getElementById('file');
+    const spinner = document.getElementById('spinner');
+    const result = document.getElementById('result');
+
+    ['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => {
+      ev.preventDefault(); drop.classList.add('over');
+    }));
+    ['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
+      ev.preventDefault(); drop.classList.remove('over');
+    }));
+    drop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) send(ev.dataTransfer.files[0]); });
+    fileEl.addEventListener('change', () => { if (fileEl.files[0]) send(fileEl.files[0]); });
+
+    async function send(file) {
+      result.style.display = 'none';
+      spinner.style.display = 'block';
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch('/diagnose', { method:'POST', body:fd });
+        render(await r.json());
+      } catch (e) {
+        spinner.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    function render(d) {
+      spinner.style.display = 'none';
+      result.style.display = 'block';
+      const v = document.getElementById('verdict');
+      const knock = document.getElementById('knock');
+      const causes = document.getElementById('causes');
+      const segments = document.getElementById('segments');
+
+      if (d.model_loaded === false) {
+        v.textContent = 'Cleaning only (no model loaded)';
+        v.style.color = 'var(--yellow)';
+        knock.textContent = '';
+        causes.innerHTML = '';
+        const c = d.cleaning || {};
+        segments.textContent = `Isolated ${(c.segments||[]).length} span(s), ${c.kept_seconds||0}s` +
+          (c.is_music ? ' — looks like music' : '');
+        document.getElementById('note').textContent =
+          'Train a model (cardiag train) or set CARDIAG_MODEL to enable diagnosis.';
+        return;
+      }
+
+      const color = {fault:'var(--red)', normal:'var(--green)', uncertain:'var(--yellow)'}[d.verdict];
+      v.textContent = `${d.verdict.toUpperCase()}  ·  fault p=${d.fault_probability.toFixed(2)}`;
+      v.style.color = color;
+      knock.textContent = d.engine_knock_probability >= 0.5
+        ? `⚠ Engine knock likely (p=${d.engine_knock_probability.toFixed(2)}) — check oil`
+        : '';
+
+      causes.innerHTML = (d.causes || []).map(c => `
+        <div class="bar-row">
+          <div class="pct">${Math.round(c.p*100)}%</div>
+          <div class="track"><div class="bar" style="width:${Math.round(c.p*100)}%"></div></div>
+          <div class="part" title="${c.note||''}">${c.part}</div>
+        </div>`).join('');
+
+      const segs = d.segments || [];
+      const kept = segs.reduce((a,s)=>a+(s.duration||0),0);
+      segments.innerHTML = segs.length
+        ? `<span class="chip">cleaned</span> isolated ${segs.length} mechanical span(s), ${kept.toFixed(1)}s total`
+        : `<span class="chip">whole clip</span> cleaning isolated no distinct span`;
+      document.getElementById('note').textContent = d.note || '';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cardiag"
+version = "0.1.0"
+description = "Diagnose a car's mechanical fault from the sound it makes — scrape, clean, label, train, classify."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "Adam Sohn" }]
+keywords = ["audio", "machine-learning", "automotive", "sound-classification", "clap"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+]
+
+# Core = everything needed to CLEAN a clip and DIAGNOSE it with a trained model.
+dependencies = [
+    "numpy>=1.26",
+    "librosa>=0.10",
+    "soundfile>=0.12",
+    "scikit-learn>=1.4",
+    "joblib>=1.3",
+    "torch>=2.2",
+    "transformers>=4.40",
+    "silero-vad>=5.1",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+# Scraping the corpus (YouTube / TikTok / Reddit). ocrmac is macOS-only; on other
+# platforms swap in easyocr behind the same consensus interface.
+scrape = [
+    "yt-dlp>=2024.0",
+    "camoufox>=0.4.11",
+    "playwright==1.51.0",
+    "ocrmac>=1.0; sys_platform == 'darwin'",
+]
+# Local web upload app.
+web = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+# Test pyramid + CI.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "pytest-playwright>=0.5",
+]
+# Everything.
+all = ["cardiag[scrape,web,dev]"]
+
+[project.scripts]
+cardiag = "cardiag.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/adamsohn/car-diagnosis"
+Documentation = "https://github.com/adamsohn/car-diagnosis/tree/main/docs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cardiag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: tests that hit the network or heavy models (deselect with -m 'not live')",
+    "model: tests that need a trained model artifact in data/training/",
+    "e2e: browser end-to-end tests (require playwright browsers installed)",
+]
+addopts = "-m 'not live and not e2e' -q"
+
+[tool.cardiag]
+# Where the (gitignored) data tree lives. Override with the CARDIAG_DATA env var.
+# Defaults to <repo>/data, resolved in cardiag/paths.py.

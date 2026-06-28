@@ -222,8 +222,10 @@ def explain(path, *, source: str = "upload", title: str = "") -> Iterator[tuple[
                     "narration": "Embedding the clean spans with CLAP and running "
                                  "the calibrated heads…", "spans": []}
     try:
+        import os
+
         from cardiag import Classifier
-        clf = Classifier.load()
+        clf = Classifier.load(os.environ.get("CARDIAG_MODEL"))
         diag = clf.diagnose(str(path)).to_dict()
     except Exception as exc:
         yield "diagnosis", {"model_loaded": False,
@@ -234,8 +236,10 @@ def explain(path, *, source: str = "upload", title: str = "") -> Iterator[tuple[
         return
     triage = None
     try:
+        import os
+
         from cardiag import TriageClassifier
-        triage = TriageClassifier.load().triage(str(path)).to_dict()
+        triage = TriageClassifier.load(os.environ.get("CARDIAG_TRIAGE")).triage(str(path)).to_dict()
     except Exception:
         pass
     diag["model_loaded"] = True

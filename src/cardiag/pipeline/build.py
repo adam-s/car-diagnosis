@@ -36,9 +36,9 @@ from cardiag.training.prep import causes
 # canonical cause family (underscored) -> coarse triage class
 _ENGINE = {"engine_internal", "low_oil", "fuel_ignition", "belt", "accessories",
            "alternator", "water_pump", "turbo", "exhaust", "ac_compressor",
-           "fuel_pump"}
-_CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "suspension", "differential",
-            "tires", "power_steering"}
+           "fuel_pump", "valvetrain", "rod_knock"}
+_CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "cv_axle", "suspension",
+            "differential", "tires", "wheel_tire", "power_steering"}
 
 
 # ============================================================ unified labeling

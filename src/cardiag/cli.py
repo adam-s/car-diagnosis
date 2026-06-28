@@ -176,10 +176,25 @@ def serve(
     port: int = typer.Option(8000),
     model: str | None = typer.Option(None),
 ):
-    """Launch the local web upload app (binds 127.0.0.1; no auth)."""
+    """Launch the local web upload app (binds 127.0.0.1; no auth).
+
+    Pass --model to use a pre-trained model: either a directory containing
+    best_model_clap.joblib + triage_model.joblib (e.g. the shipped `models/`), or
+    the best_model_clap.joblib file itself. Without it, the app uses the model in
+    data/training/ from your own `cardiag train` (or none)."""
     import os
+    from pathlib import Path
     if model:
-        os.environ["CARDIAG_MODEL"] = model
+        p = Path(model)
+        clap = p / "best_model_clap.joblib" if p.is_dir() else p
+        triage = clap.parent / "triage_model.joblib"
+        if not clap.exists():
+            from rich.console import Console
+            Console(stderr=True).print(f"[red]no model at {clap}[/red]")
+            raise typer.Exit(code=1)
+        os.environ["CARDIAG_MODEL"] = str(clap)
+        if triage.exists():
+            os.environ["CARDIAG_TRIAGE"] = str(triage)
     if host not in ("127.0.0.1", "localhost", "::1"):
         from rich.console import Console
         Console(stderr=True).print(

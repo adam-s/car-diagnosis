@@ -17,6 +17,7 @@ It handles the hard cases the corpus is full of:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -90,12 +91,27 @@ def clean(path, *, music_gate: bool = True, sr: int = config.SR_CLAP,
     max_segments : int | None
         Keep at most this many of the longest spans.
     """
-    y16, sr16 = librosa.load(str(path), sr=config.SR_CHEAP, mono=True)
+    import warnings
+    if not Path(path).exists():
+        raise FileNotFoundError(f"no such audio file: {path}")
+    try:
+        with warnings.catch_warnings():       # hush librosa's audioread fallback noise
+            warnings.simplefilter("ignore")
+            y16, sr16 = librosa.load(str(path), sr=config.SR_CHEAP, mono=True)
+            yhi, _ = librosa.load(str(path), sr=sr, mono=True)
+    except Exception as e:
+        raise ValueError(
+            f"could not read audio from {path} — is it a valid audio file? "
+            f"({type(e).__name__})") from None
+    # defensively sanitize NaN/inf (a corrupt clip should not poison the cascade)
+    y16 = np.nan_to_num(y16, copy=False)
+    yhi = np.nan_to_num(yhi, copy=False)
+    if y16.size == 0:                       # empty/garbled file -> nothing to isolate
+        return CleanResult(file=str(path), segments=[], speech_fraction=0.0,
+                           total_seconds=0.0, music_probability=0.0, sr=sr,
+                           isolated=[])
     total_seconds = len(y16) / sr16
     regions, speech_fraction = candidate_regions(y16, int(sr16), return_speech_frac=True)
-
-    # high-rate audio for the isolated spans we hand downstream
-    yhi, _ = librosa.load(str(path), sr=sr, mono=True)
 
     segs: list[Segment] = []
     isolated: list[np.ndarray] = []

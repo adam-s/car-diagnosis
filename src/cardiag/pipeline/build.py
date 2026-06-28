@@ -229,18 +229,24 @@ def scrape_reddit(pages: int = 2, max_posts: int = 60) -> int:
     return n
 
 
-def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
-    """Discover fault clips via the stealth browser, download + label each.
+def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault") -> int:
+    """Discover clips via the stealth browser, download + label each with ``kind``.
+
+    ``kind="fault"`` (default) uses the problem queries; ``kind="normal"`` uses the
+    healthy-engine queries — scrape both to give `cardiag train` fault AND normal
+    clips from TikTok, which breaks the recording-source confound (docs/SCORECARD.md).
 
     Needs the stealth browser: `pip install -e .[scrape]` then
     `python -m camoufox fetch`. TikTok anti-bot may block headless runs.
     """
-    from cardiag.ingest.tiktok.discover import PROBLEM_QUERIES
+    from cardiag.ingest.tiktok.discover import NORMAL_QUERIES, PROBLEM_QUERIES
+    if kind not in ("fault", "normal"):
+        raise SystemExit("tiktok kind must be 'fault' or 'normal'")
 
     _require("yt-dlp", "pip install -e '.[scrape]'")
     _require("ffmpeg", "install ffmpeg (brew install ffmpeg / apt install ffmpeg)")
     paths.ensure_data_dirs()
-    queries = PROBLEM_QUERIES[:n_queries]
+    queries = (NORMAL_QUERIES if kind == "normal" else PROBLEM_QUERIES)[:n_queries]
 
     # Prefer Camoufox (stealth Firefox); fall back to patchright (stealth Chromium).
     discovered = False
@@ -283,11 +289,11 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8) -> int:
             continue
         finally:
             mp4.unlink(missing_ok=True)
-        recs += _label_audio(wav, vid, w.get("desc", ""), "fault", paths.TT_DATA, clap)
+        recs += _label_audio(wav, vid, w.get("desc", ""), kind, paths.TT_DATA, clap)
         wav.unlink(missing_ok=True)
-        print(f"  [tiktok {i+1}/{len(work)}] clips: {len(recs)}", flush=True)
+        print(f"  [tiktok {kind} {i+1}/{len(work)}] clips: {len(recs)}", flush=True)
     n = _write_corpus(recs, paths.TT_DATA)
-    print(f"tiktok: {n} labeled clips -> {paths.TT_DATA/'corpus.jsonl'}")
+    print(f"tiktok ({kind}): {n} labeled clips -> {paths.TT_DATA/'corpus.jsonl'}")
     return n
 
 

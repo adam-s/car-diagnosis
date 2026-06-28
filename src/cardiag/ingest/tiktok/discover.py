@@ -45,6 +45,20 @@ PROBLEM_QUERIES = [
     "bad motor mount clunk", "valve tapping noise",
 ]
 
+# Healthy-engine queries — the missing 'normal' class. The corpus is otherwise
+# fault-dominated (every normal clip came from YouTube), so scraping these lets
+# `cardiag train` learn fault-vs-normal from more than one source and breaks the
+# recording-source confound documented in docs/SCORECARD.md. Labels are weak
+# (a "healthy engine" clip could be clickbait) — same honest weak supervision as
+# the problem queries.
+NORMAL_QUERIES = [
+    "healthy engine idle sound", "what a good engine sounds like",
+    "smooth running engine sound", "normal car idle sound", "quiet engine idle",
+    "perfect engine purr", "new engine sound idle", "healthy engine bay sound",
+    "well maintained engine sound", "normal exhaust note idle",
+    "engine running smooth no noise", "good cold start engine sound",
+]
+
 
 def extract_items(obj, out, query):
     if isinstance(obj, dict):

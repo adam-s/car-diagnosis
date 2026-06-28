@@ -206,13 +206,19 @@ def scrape(
     per_query: int = typer.Option(3, help="(youtube) videos per search query."),
     max_videos: int = typer.Option(40, help="(youtube/tiktok) cap on videos."),
     pages: int = typer.Option(2, help="(reddit) pages per feed."),
+    normal: bool = typer.Option(
+        False, "--normal",
+        help="(tiktok) scrape HEALTHY-engine clips labeled 'normal' instead of "
+             "fault — run this AND the default fault pass to give train both "
+             "classes and break the source confound (docs/SCORECARD.md)."),
 ):
-    """Discover, download, and clean fault-sound clips into a labeled corpus.
+    """Discover, download, and clean sound clips into a labeled corpus.
 
     All three sources funnel through one cleaning + CLAP-labeling path and write
     data/<platform>/corpus.jsonl ready for `cardiag train` (no LLM, no external
-    data). YouTube runs both fault and normal queries; Reddit and TikTok add
-    fault clips. TikTok needs the stealth browser (`python -m camoufox fetch`).
+    data). YouTube runs both fault and normal queries; Reddit adds fault clips;
+    TikTok adds fault clips by default, or normal clips with --normal. TikTok needs
+    the stealth browser (`python -m camoufox fetch`).
     """
     from cardiag.pipeline import build
     if platform == "youtube":
@@ -220,7 +226,7 @@ def scrape(
     elif platform == "reddit":
         build.scrape_reddit(pages=pages, max_posts=max_videos)
     elif platform == "tiktok":
-        build.scrape_tiktok(max_videos=max_videos)
+        build.scrape_tiktok(max_videos=max_videos, kind="normal" if normal else "fault")
     else:
         raise typer.BadParameter("platform must be youtube, tiktok, or reddit")
     _nudge("audit what you collected:  cardiag gallery -o gallery.html",

@@ -254,8 +254,8 @@ def start():
     offline model if you don't have one, and tell you exactly what to do next."""
     from rich.console import Console
 
-    from cardiag import paths
     from cardiag import doctor as doc
+    from cardiag import paths
     from cardiag.pipeline import build
     c = Console()
     c.print("\n[bold]Welcome to cardiag.[/bold] Getting you set up…\n")

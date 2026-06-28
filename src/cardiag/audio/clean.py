@@ -99,10 +99,10 @@ def clean(path, *, music_gate: bool = True, sr: int = config.SR_CLAP,
             warnings.simplefilter("ignore")
             y16, sr16 = librosa.load(str(path), sr=config.SR_CHEAP, mono=True)
             yhi, _ = librosa.load(str(path), sr=sr, mono=True)
-    except Exception as e:
+    except Exception as exc:
         raise ValueError(
             f"could not read audio from {path} — is it a valid audio file? "
-            f"({type(e).__name__})") from None
+            f"({type(exc).__name__})") from None
     # defensively sanitize NaN/inf (a corrupt clip should not poison the cascade)
     y16 = np.nan_to_num(y16, copy=False)
     yhi = np.nan_to_num(yhi, copy=False)

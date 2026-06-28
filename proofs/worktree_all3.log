@@ -1,42 +1,42 @@
-HEAD is now at a6e5fbc Make Camoufox the default scraping transport (TikTok + Reddit)
+HEAD is now at 32b821e Fix: lazy-import patchright so Camoufox TikTok path needs no patchright
 === fresh venv + install [scrape,web,dev] ===
  + yt-dlp==2026.6.9
 Current version: v135.0.1-beta.24
 === clean slate ===
 model exists? False
 === [A] scrape YouTube (yt-dlp) ===
-  [youtube 8/10] fault  clips: 41
-  skip Bad9JIBFoOI: CalledProcessError
-  [youtube 10/10] fault  clips: 43
-youtube: 43 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/corpus.jsonl
+  [youtube 8/10] fault  clips: 43
+  [youtube 9/10] fault  clips: 45
+  [youtube 10/10] normal clips: 45
+youtube: 45 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/corpus.jsonl
 === [B] scrape Reddit (Camoufox) ===
-  r/Justrolledintotheshop top?t=month p1: kept 17 (scanned 99, reposts 1)
-  r/Justrolledintotheshop hot p1: kept 17 (scanned 99, reposts 1)
+  r/Justrolledintotheshop top?t=month p1: kept 19 (scanned 99, reposts 0)
+  r/Justrolledintotheshop hot p1: kept 19 (scanned 99, reposts 0)
 
-DONE: kept 17 of 99 scanned, 1 reposts skipped -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/reddit/posts.jsonl
+DONE: kept 19 of 99 scanned, 0 reposts skipped -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/reddit/posts.jsonl
 reddit: 29 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/reddit/corpus.jsonl
 === [C] scrape TikTok (Camoufox) ===
-│ ❱  22 from patchright.async_api import async_playwright                      │
-│    23                                                                        │
-│    24 from cardiag import paths                                              │
-│    25                                                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
-ModuleNotFoundError: No module named 'patchright'
+[out#0/wav @ 0x7fd617009000] Output file does not contain any stream
+Error opening output file /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/tiktok/tmp/7538375580652195102.wav.
+Error opening output files: Invalid argument
+  [tiktok 9/10] clips: 2
+  [tiktok 10/10] clips: 9
+tiktok: 9 labeled clips -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/tiktok/corpus.jsonl
 === [D] train on the combined 3-source corpus ===
     ],
-    "n_train": 15,
-    "n_test": 3,
-    "held_out_acc": 0.0,
-    "majority": 1.0
+    "n_train": 18,
+    "n_test": 12,
+    "held_out_acc": 0.167,
+    "majority": 0.833
   },
   "triage": {
     "classes": [
       "chassis",
       "engine"
     ],
-    "n_train": 15,
-    "n_test": 3,
-    "held_out_acc": 0.667,
+    "n_train": 13,
+    "n_test": 9,
+    "held_out_acc": 0.556,
     "majority": 1.0
   }
 }
@@ -45,20 +45,20 @@ saved model -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c
 saved triage -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/training/triage_model.joblib
 === [E] diagnose a scraped clip ===
 {
- "file": "/private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/clips/IEyCs9iXiYs/clip_00.wav",
+ "file": "/private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/wt_all3/data/youtube/clips/X1l5XrxUQLQ/clip_03.wav",
  "verdict": "fault",
- "fault_probability": 1.0,
- "engine_knock_probability": 0.073,
+ "fault_probability": 0.966,
+ "engine_knock_probability": 0.294,
  "causes": [
   {
-   "part": "wheel_bearing",
-   "p": 0.933,
+   "part": "engine_internal",
+   "p": 0.877,
    "note": ""
   },
   {
-   "part": "engine_internal",
-   "p": 0.067,
+   "part": "cv_axle",
+   "p": 0.122,
    "note": ""
-  }
+  },
 ALL3_EXIT=0
 WT_ALL3_SCRIPT_EXIT=0

@@ -1,153 +1,393 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>cardiag — diagnose a car fault from its sound</title>
-  <style>
-    :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3;
-            --dim:#8b949e; --red:#f85149; --green:#3fb950; --yellow:#d29922;
-            --cyan:#58a6ff; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--fg);
-           font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-    .wrap { max-width:680px; margin:0 auto; padding:48px 20px; }
-    h1 { font-size:26px; margin:0 0 4px; }
-    .sub { color:var(--dim); margin:0 0 28px; }
-    .drop { border:2px dashed var(--line); border-radius:14px; padding:40px 20px;
-            text-align:center; cursor:pointer; transition:.15s; background:var(--card); }
-    .drop:hover, .drop.over { border-color:var(--cyan); background:#1b2230; }
-    .drop input { display:none; }
-    .hint { color:var(--dim); font-size:13px; margin-top:8px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
-            padding:22px 24px; margin-top:24px; display:none; }
-    .verdict { font-size:20px; font-weight:700; }
-    .bar-row { display:flex; align-items:center; gap:10px; margin:6px 0; }
-    .bar { height:10px; border-radius:6px; background:var(--cyan); }
-    .track { flex:1; height:10px; border-radius:6px; background:#21262d; overflow:hidden; }
-    .part { width:150px; color:var(--dim); }
-    .pct { width:46px; text-align:right; font-variant-numeric:tabular-nums; }
-    .note { color:var(--dim); font-size:13px; margin-top:14px; border-top:1px solid var(--line);
-            padding-top:12px; }
-    .spinner { display:none; color:var(--dim); margin-top:20px; }
-    .chip { display:inline-block; font-size:12px; padding:2px 8px; border-radius:20px;
-            border:1px solid var(--line); color:var(--dim); margin-right:6px; }
-    code { color:var(--cyan); }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cardiag — diagnose a car fault from its sound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+:root{
+  --font-serif:"Source Serif Pro","Charter",Georgia,serif;
+  --font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+  --bg:#fdfcf9; --surface:#f7f5f0; --surface-muted:#f0ede5;
+  --border:#e8e4dc; --border-strong:#d8d2c4;
+  --ink:#1a1a1a; --ink-muted:#5a5a5a; --ink-subtle:#9a9a9a; --ink-faded:#c8c4bb;
+  --accent:#1f3a5f; --accent-hover:#2d4a73;
+  --viz-accent:#4a8ce2; --viz-success:#2fa85a; --viz-success-ink:#1d7a40;
+  --viz-error:#d94c4c; --viz-error-ink:#9a2d2d; --viz-music:#6f42c1; --viz-warn:#c97a16;
+  --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:40px;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px;
+  --shadow-hairline:0 1px 2px rgba(26,26,26,.04),0 1px 1px rgba(26,26,26,.06);
+  --shadow-card:0 2px 4px rgba(26,26,26,.05),0 8px 28px rgba(26,26,26,.07);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:var(--font-serif);font-size:1.0625rem;line-height:1.55;color:var(--ink);
+  background:var(--bg);font-feature-settings:"kern","liga","calt"}
+.byline{position:fixed;top:20px;right:24px;font-family:var(--font-sans);font-size:.72rem;
+  font-weight:500;letter-spacing:.04em;color:var(--ink-subtle);text-decoration:none;
+  padding:4px 8px;border-radius:var(--radius-sm);transition:color .15s ease,background .15s ease;z-index:40}
+.byline:hover{color:var(--ink-muted);background:var(--surface)}
+.wrap{max-width:1080px;margin:0 auto;padding:72px 32px 120px}
+@media(max-width:760px){.wrap{padding:48px 18px 80px}}
+
+.brand{display:flex;align-items:baseline;gap:12px}
+.sigma{font-family:var(--font-serif);font-style:italic;font-weight:700;font-size:2.4rem;
+  color:var(--accent);line-height:1}
+h1{font-size:2.4rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.tag{font-family:var(--font-sans);font-size:.78rem;font-weight:500;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-subtle);margin-left:auto;align-self:center}
+.lede{font-size:1.18rem;color:var(--ink-muted);line-height:1.5;margin-top:14px;max-width:680px}
+.lede b{color:var(--ink);font-weight:600}
+
+.input-card{margin-top:32px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:8px;box-shadow:var(--shadow-hairline);
+  display:flex;gap:8px;align-items:center;transition:border-color .15s ease,box-shadow .15s ease}
+.input-card.drag{border-color:var(--viz-accent);box-shadow:0 0 0 3px rgba(74,140,226,.16)}
+.input-card input[type=text]{flex:1;border:0;background:transparent;font-family:var(--font-mono);
+  font-size:.92rem;color:var(--ink);padding:12px 14px;outline:none}
+.input-card input::placeholder{color:var(--ink-subtle);font-family:var(--font-sans)}
+.btn{font-family:var(--font-sans);font-weight:600;font-size:.92rem;color:#fff;background:var(--accent);
+  border:0;border-radius:var(--radius-md);padding:12px 22px;cursor:pointer;
+  transition:background .12s ease,transform .12s ease}
+.btn:hover{background:var(--accent-hover)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{background:var(--ink-faded);cursor:default}
+.btn.ghost{color:var(--accent);background:transparent;border:1px solid var(--border-strong);padding:12px 16px}
+.btn.ghost:hover{background:var(--surface-muted)}
+.hint{font-family:var(--font-sans);font-size:.8rem;color:var(--ink-subtle);margin-top:10px;
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hint a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--border-strong)}
+.hint .pill{padding:2px 9px;border:1px solid var(--border);border-radius:999px;background:var(--bg)}
+.err{color:var(--viz-error-ink);background:#faecec;border:1px solid #f0d4d4;border-radius:var(--radius-md);
+  padding:10px 14px;margin-top:14px;font-family:var(--font-sans);font-size:.9rem;display:none}
+
+#stage-wrap{margin-top:36px;display:none}
+.now-playing{font-family:var(--font-sans);font-size:.85rem;color:var(--ink-muted);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px}
+.src-badge{font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;font-size:.72rem;
+  border:1px solid var(--border-strong);border-radius:999px;padding:2px 10px}
+
+.rail{display:flex;align-items:center;gap:0;margin:6px 0 26px;flex-wrap:wrap}
+.node{display:flex;align-items:center;gap:9px;font-family:var(--font-sans);font-size:.78rem;
+  color:var(--ink-faded);transition:color .3s ease}
+.node .dot{width:11px;height:11px;border-radius:50%;background:var(--border-strong);
+  box-shadow:0 0 0 0 rgba(74,140,226,0);transition:background .3s ease,box-shadow .3s ease}
+.node.done{color:var(--ink-muted)} .node.done .dot{background:var(--viz-success)}
+.node.active{color:var(--accent);font-weight:600}
+.node.active .dot{background:var(--viz-accent);box-shadow:0 0 0 5px rgba(74,140,226,.18);
+  animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(74,140,226,.05)}}
+.link{width:26px;height:1px;background:var(--border);margin:0 8px}
+@media(max-width:760px){.node span{display:none}.link{width:14px;margin:0 4px}}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-hairline);padding:20px 22px;margin-bottom:20px}
+.card h3{font-family:var(--font-sans);font-size:.72rem;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-subtle);margin-bottom:14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--font-sans);font-size:.76rem;
+  color:var(--ink-muted);margin-top:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+svg{display:block;width:100%;overflow:visible}
+.wf-axis text{font-family:var(--font-mono);font-size:10px;fill:var(--ink-subtle)}
+.wf-axis line,.wf-axis path{stroke:var(--border)}
+
+.log{position:relative;padding-left:26px}
+.log::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.entry{position:relative;padding:9px 0;opacity:0;transform:translateY(6px);
+  transition:opacity .32s ease,transform .32s ease}
+.entry.in{opacity:1;transform:none}
+.entry .mk{position:absolute;left:-26px;top:12px;width:16px;height:16px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--viz-success);display:flex;align-items:center;justify-content:center}
+.entry .mk::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--viz-success)}
+.entry b{font-family:var(--font-sans);font-size:.84rem;font-weight:600;color:var(--ink)}
+.entry .t{font-family:var(--font-mono);font-size:.7rem;color:var(--ink-faded);margin-left:8px}
+.entry p{font-size:.95rem;color:var(--ink-muted);line-height:1.45;margin-top:2px}
+
+#diagnosis{display:none}
+.verdict{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+.verdict .big{font-family:var(--font-serif);font-weight:700;font-size:2.1rem;letter-spacing:-.01em}
+.v-fault{color:var(--viz-error-ink)} .v-normal{color:var(--viz-success-ink)} .v-uncertain{color:var(--viz-warn)}
+.gauge{flex:1;min-width:220px}
+.gauge .track{height:10px;background:var(--surface-muted);border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+.gauge .fill{height:100%;width:0;border-radius:999px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.gauge .lab{display:flex;justify-content:space-between;font-family:var(--font-sans);font-size:.74rem;
+  color:var(--ink-subtle);margin-top:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+@media(max-width:680px){.grid2{grid-template-columns:1fr}}
+.metric{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px}
+.metric .k{font-family:var(--font-sans);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-subtle)}
+.metric .v{font-family:var(--font-serif);font-size:1.5rem;font-weight:700;margin-top:4px}
+.band{font-family:var(--font-sans);font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;display:inline-block;margin-top:6px}
+.band.HIGH{background:#dcebe0;color:var(--viz-success-ink)} .band.MEDIUM{background:#e3eefb;color:var(--accent)}
+.band.LOW{background:#fbf0dc;color:var(--viz-warn)} .band.ABSTAIN{background:var(--surface-muted);color:var(--ink-muted)}
+.cause .row{display:flex;align-items:center;gap:12px;margin:7px 0}
+.cause .nm{font-family:var(--font-sans);font-size:.86rem;width:140px;text-align:right;color:var(--ink-muted);flex:none}
+.cause .bar{flex:1;height:18px;background:var(--surface-muted);border-radius:var(--radius-sm);overflow:hidden}
+.cause .bar i{display:block;height:100%;width:0;background:var(--viz-accent);transition:width .6s cubic-bezier(.4,0,.2,1)}
+.cause .row:first-child .bar i{background:var(--accent)}
+.cause .pc{font-family:var(--font-mono);font-size:.78rem;color:var(--ink-muted);width:44px}
+.note{font-family:var(--font-sans);font-size:.82rem;color:var(--ink-subtle);line-height:1.5;margin-top:14px;
+  border-top:1px solid var(--border);padding-top:12px}
+.note em{color:var(--ink-muted);font-style:italic}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border-strong);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.foot{font-family:var(--font-sans);font-size:.8rem;color:var(--ink-subtle);margin-top:40px;line-height:1.6}
+.foot code{font-family:var(--font-mono);background:var(--surface);padding:1px 6px;border-radius:2px;font-size:.86em}
+</style>
 </head>
 <body>
-  <div class="wrap">
+<a class="byline" href="https://adamsohn.com">adamsohn.com</a>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="sigma">&#931;</span>
     <h1>cardiag</h1>
-    <p class="sub">Upload a car-sound clip. It is cleaned (music / voice / static removed) and diagnosed locally.</p>
+    <span class="tag">sound &rarr; diagnosis</span>
+  </div>
+  <p class="lede">Paste a <b>YouTube, TikTok, or Reddit</b> link — or drop an audio
+    file — and watch the clip get <b>cleaned, isolated, and diagnosed</b> in real
+    time. Every stage of the pipeline is shown as it happens.</p>
 
-    <label class="drop" id="drop">
-      <input type="file" id="file" accept="audio/*,.wav,.mp3,.m4a,.ogg" />
-      <div><strong>Drop an audio clip</strong> or click to choose</div>
-      <div class="hint">.wav / .mp3 / .m4a — the file never leaves your machine</div>
-    </label>
+  <div class="input-card" id="drop">
+    <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=…  (or drop a file)" autocomplete="off" spellcheck="false">
+    <button class="btn ghost" id="pick">Upload</button>
+    <button class="btn" id="go">Diagnose</button>
+    <input type="file" id="file" accept="audio/*,video/*,.wav,.mp3,.m4a,.ogg,.flac,.webm,.mp4" hidden>
+  </div>
+  <div class="hint">
+    <span class="pill">no clip handy?</span>
+    <a href="#" class="ex" data-u="https://www.youtube.com/watch?v=B9vCVByesGI">try an exhaust-leak clip</a>
+    <span style="color:var(--ink-faded)">first run downloads the CLAP model (~2&nbsp;GB, one time)</span>
+  </div>
+  <div class="err" id="err"></div>
 
-    <div class="spinner" id="spinner">Cleaning and diagnosing…</div>
+  <div id="stage-wrap">
+    <div class="now-playing"><span class="src-badge" id="src">file</span><span id="title"></span></div>
+    <div class="rail" id="rail"></div>
 
-    <div class="card" id="result">
-      <div class="verdict" id="verdict"></div>
-      <div id="knock" style="color:var(--red);margin:6px 0;font-weight:600;"></div>
-      <div style="margin:14px 0 6px;color:var(--dim);">Most likely cause (suggestive, not definitive):</div>
-      <div id="causes"></div>
-      <div id="segments" style="margin-top:12px;color:var(--dim);font-size:13px;"></div>
+    <div class="card" id="wf-card" style="display:none">
+      <h3>Audio timeline — what survives the clean</h3>
+      <svg id="wf" height="170"></svg>
+      <div class="legend">
+        <span><i style="background:var(--ink-faded)"></i>raw audio</span>
+        <span><i style="background:var(--viz-error)"></i>speech (removed)</span>
+        <span><i style="background:var(--viz-music)"></i>music (dropped)</span>
+        <span><i style="background:var(--viz-success)"></i>mechanical span (kept &amp; diagnosed)</span>
+      </div>
+    </div>
+
+    <div class="card" id="spec-card" style="display:none">
+      <h3>Log-mel spectrogram</h3>
+      <canvas id="spec" style="width:100%;height:180px;border-radius:4px"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Pipeline timeline</h3>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="card" id="diagnosis">
+      <h3>Diagnosis <span style="color:var(--ink-faded);text-transform:none;letter-spacing:0">· temperature-calibrated</span></h3>
+      <div class="verdict">
+        <span class="big" id="verdict">—</span>
+        <div class="gauge">
+          <div class="track"><div class="fill" id="faultfill"></div></div>
+          <div class="lab"><span>normal</span><span id="faultpc">fault probability</span><span>fault</span></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="metric">
+          <div class="k">Engine knock</div><div class="v" id="knock">—</div>
+          <div style="font-family:var(--font-sans);font-size:.78rem;color:var(--ink-subtle)">probability of a metallic knock</div>
+        </div>
+        <div class="metric">
+          <div class="k">Triage — where is it from?</div><div class="v" id="triage">—</div>
+          <span class="band" id="band"></span>
+        </div>
+      </div>
+      <div class="cause">
+        <div style="font-family:var(--font-sans);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-subtle);margin:18px 0 4px">Most likely part — ranked shortlist</div>
+        <div id="causes"></div>
+      </div>
       <div class="note" id="note"></div>
     </div>
   </div>
 
-  <script>
-    const drop = document.getElementById('drop');
-    const fileEl = document.getElementById('file');
-    const spinner = document.getElementById('spinner');
-    const result = document.getElementById('result');
+  <p class="foot">Runs entirely on your machine. The clip is cleaned with the
+    <b>same cascade</b> used to build the training corpus, so it's processed exactly like a
+    training clip — then scored by calibrated linear heads on frozen CLAP embeddings.
+    See <code>docs/SCORECARD.md</code> for the measured, by-video cross-validated accuracy.</p>
+</div>
 
-    ['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => {
-      ev.preventDefault(); drop.classList.add('over');
-    }));
-    ['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
-      ev.preventDefault(); drop.classList.remove('over');
-    }));
-    drop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) send(ev.dataTransfer.files[0]); });
-    fileEl.addEventListener('change', () => { if (fileEl.files[0]) send(fileEl.files[0]); });
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const STAGES=[["acquire","Acquire"],["waveform","Waveform"],["energy","Energy"],
+  ["vad","Speech"],["regions","Isolate"],["music","Music gate"],["embed","Diagnose"]];
+let DUR=1;
 
-    async function send(file) {
-      result.style.display = 'none';
-      spinner.style.display = 'block';
-      spinner.textContent = 'Cleaning and diagnosing…';
-      if (file.size > 50 * 1024 * 1024) {              // client-side size guard
-        showError('That file is larger than 50 MB. A sound clip should be a few MB.');
-        return;
-      }
-      const fd = new FormData();
-      fd.append('file', file);
-      try {
-        const r = await fetch('/diagnose', { method:'POST', body:fd });
-        const d = await r.json().catch(() => ({error: 'server returned a non-JSON response'}));
-        if (!r.ok || d.error) { showError(d.error || ('error ' + r.status)); return; }
-        render(d);
-      } catch (e) {
-        showError(e.message);
-      }
+function buildRail(){
+  const r=$("#rail"); r.innerHTML="";
+  STAGES.forEach(([id,lab],i)=>{
+    if(i)r.insertAdjacentHTML("beforeend",'<span class="link"></span>');
+    r.insertAdjacentHTML("beforeend",`<div class="node" data-id="${id}"><span class="dot"></span><span>${lab}</span></div>`);
+  });
+}
+function railState(id,state){
+  const n=$(`.node[data-id="${id}"]`); if(!n)return;
+  if(state==="active"){$$(".node.active").forEach(x=>x.classList.remove("active"));n.classList.add("active");}
+  if(state==="done"){n.classList.add("done");n.classList.remove("active");}
+}
+
+const WF={};
+function initWF(peaks,duration){
+  DUR=duration||1; const svg=d3.select("#wf"); svg.selectAll("*").remove();
+  const W=svg.node().clientWidth||900, H=170, m={t:8,b:22};
+  const x=d3.scaleLinear().domain([0,DUR]).range([0,W]);
+  const yA=d3.scaleLinear().domain([-1,1]).range([H-m.b,m.t]);
+  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg;
+  WF.overlay=svg.append("g");
+  const area=d3.area().x((d,i)=>x(i/peaks.length*DUR)).y0(d=>yA(Math.max(-1,d[0]))).y1(d=>yA(Math.min(1,d[1])));
+  svg.append("path").attr("d",area(peaks)).attr("fill","var(--ink-faded)").attr("opacity",.85);
+  WF.scan=svg.append("line").attr("y1",m.t).attr("y2",H-m.b).attr("stroke","var(--viz-accent)")
+    .attr("stroke-width",1.5).attr("opacity",0);
+  svg.append("g").attr("class","wf-axis").attr("transform",`translate(0,${H-m.b})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d=>d+"s"));
+}
+function sweep(){ if(!WF.scan)return;
+  WF.scan.attr("opacity",.8).attr("x1",0).attr("x2",0).transition().duration(1500).ease(d3.easeQuadInOut)
+    .attr("x1",WF.x(DUR)).attr("x2",WF.x(DUR)).on("end",()=>WF.scan.transition().duration(300).attr("opacity",0));
+}
+function drawSpans(cls,spans,color,op){
+  if(!WF.overlay||!spans)return;
+  const g=WF.overlay.append("g").attr("class",cls);
+  spans.forEach(([s,e])=>{
+    g.append("rect").attr("x",WF.x(s)).attr("y",WF.m.t).attr("height",WF.H-WF.m.b-WF.m.t)
+      .attr("width",0).attr("fill",color).attr("opacity",0)
+      .transition().duration(420).ease(d3.easeCubicOut)
+      .attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("opacity",op);
+  });
+}
+
+function drawSpec(mel,f,t){
+  const cv=$("#spec"), dpr=devicePixelRatio||1;
+  const W=cv.clientWidth, H=180; cv.width=W*dpr; cv.height=H*dpr;
+  const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
+  const cw=W/t, ch=H/f, col=d3.interpolateMagma;
+  for(let ti=0;ti<t;ti++)for(let fi=0;fi<f;fi++){
+    ctx.fillStyle=col(mel[fi][ti]);
+    ctx.fillRect(ti*cw,(f-1-fi)*ch,Math.ceil(cw),Math.ceil(ch));
+  }
+}
+
+function addLog(label,narration){
+  const e=document.createElement("div"); e.className="entry";
+  e.innerHTML=`<span class="mk"></span><b>${label}</b><p>${narration}</p>`;
+  $("#log").appendChild(e); requestAnimationFrame(()=>e.classList.add("in"));
+}
+
+function showDiag(d){
+  $("#diagnosis").style.display="block";
+  if(d.model_loaded===false){
+    $("#verdict").textContent="no model"; $("#verdict").className="big v-uncertain";
+    $("#note").textContent=d.note||""; return;
+  }
+  const v=(d.verdict||"uncertain").toLowerCase();
+  $("#verdict").textContent=v.toUpperCase(); $("#verdict").className="big v-"+v;
+  const fp=d.fault_probability||0;
+  $("#faultfill").style.width=(fp*100).toFixed(0)+"%";
+  $("#faultfill").style.background= fp>=.6?"var(--viz-error)":fp<=.4?"var(--viz-success)":"var(--viz-warn)";
+  $("#faultpc").textContent="fault p = "+fp.toFixed(2);
+  $("#knock").textContent=(d.engine_knock_probability||0).toFixed(2);
+  $("#knock").style.color=(d.engine_knock_probability||0)>=.5?"var(--viz-error-ink)":"var(--ink)";
+  if(d.triage&&d.triage.triage&&d.triage.triage!=="unknown"){
+    $("#triage").textContent=d.triage.triage==="engine"?"engine-internal":"running gear";
+    const b=$("#band"); b.textContent=(d.triage.band||"")+" · "+((d.triage.confidence||0)*100).toFixed(0)+"%";
+    b.className="band "+(d.triage.band||"ABSTAIN");
+  }else{$("#triage").textContent="—"; $("#band").textContent="";}
+  const cc=$("#causes"); cc.innerHTML="";
+  (d.causes||[]).forEach(c=>{
+    const row=document.createElement("div"); row.className="row";
+    row.innerHTML=`<span class="nm">${c.part.replace(/_/g," ")}</span>`+
+      `<span class="bar"><i></i></span><span class="pc">${(c.p*100).toFixed(0)}%</span>`;
+    cc.appendChild(row);
+    requestAnimationFrame(()=>row.querySelector("i").style.width=Math.max(3,c.p*100)+"%");
+  });
+  let note=d.note||"";
+  if(d.music_prob>=.5)note="⚠ This clip looks like mostly music — treat the result with caution. "+note;
+  $("#note").innerHTML=note+" <em>Probabilities are temperature-calibrated, so a weak head reads "+
+    "“uncertain” rather than guessing.</em>";
+}
+
+async function run(form){
+  $("#err").style.display="none"; $("#stage-wrap").style.display="block";
+  $("#log").innerHTML=""; $("#diagnosis").style.display="none";
+  $("#wf-card").style.display="none"; $("#spec-card").style.display="none";
+  $("#go").disabled=true; $("#go").innerHTML='<span class="spin"></span>';
+  buildRail(); railState("acquire","active");
+  let resp;
+  try{ resp=await fetch("/api/diagnose/stream",{method:"POST",body:form}); }
+  catch(e){ return fail("network error — is the server running?"); }
+  if(!resp.ok||!resp.body) return fail("server error ("+(resp&&resp.status)+")");
+  const reader=resp.body.getReader(), dec=new TextDecoder(); let buf="";
+  while(true){
+    const {value,done}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true}); let i;
+    while((i=buf.indexOf("\n\n"))>=0){ handle(buf.slice(0,i)); buf=buf.slice(i+2); }
+  }
+  $("#go").disabled=false; $("#go").textContent="Diagnose";
+}
+function fail(msg){ $("#err").textContent=msg; $("#err").style.display="block";
+  $("#go").disabled=false; $("#go").textContent="Diagnose"; }
+
+function handle(frame){
+  const m=/^event: (.+)\ndata: (.*)$/s.exec(frame); if(!m)return;
+  const ev=m[1], d=JSON.parse(m[2]);
+  if(ev==="status"){ return; }
+  if(ev==="error"){ fail(d.message); return; }
+  if(ev==="meta"){ railState("acquire","done");
+    $("#src").textContent=d.source; $("#title").textContent=d.title||""; return; }
+  if(ev==="waveform"){ $("#wf-card").style.display="block"; initWF(d.peaks,d.duration);
+    railState("waveform","done"); railState("energy","active"); sweep(); return; }
+  if(ev==="spectrogram"){ $("#spec-card").style.display="block"; drawSpec(d.mel,d.f,d.t); return; }
+  if(ev==="stage"){
+    railState(d.id,"active");
+    if(d.id==="vad")drawSpans("sp",d.speech,"var(--viz-error)",.28);
+    if(d.id==="regions")drawSpans("rg",d.regions,"var(--viz-success)",.30);
+    if(d.id==="music"&&d.spans){
+      drawSpans("mu",d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]),"var(--viz-music)",.40);
     }
+    addLog(d.label,d.narration);
+    const order=["energy","vad","regions","music","embed"];
+    const nx=order[order.indexOf(d.id)+1]; railState(d.id,"done"); if(nx)railState(nx,"active");
+    return;
+  }
+  if(ev==="diagnosis"){ railState("embed","done"); showDiag(d); return; }
+  if(ev==="done"){ $$(".node").forEach(n=>n.classList.add("done")); return; }
+}
 
-    function showError(msg) {
-      spinner.style.display = 'none';
-      result.style.display = 'block';
-      document.getElementById('verdict').textContent = '⚠ ' + msg;
-      document.getElementById('verdict').style.color = 'var(--red)';
-      ['knock','causes','segments','note'].forEach(id => document.getElementById(id).innerHTML = '');
-    }
-
-    function render(d) {
-      spinner.style.display = 'none';
-      result.style.display = 'block';
-      const v = document.getElementById('verdict');
-      const knock = document.getElementById('knock');
-      const causes = document.getElementById('causes');
-      const segments = document.getElementById('segments');
-
-      if (!d || typeof d.fault_probability !== 'number') {  // guard malformed payloads
-        if (d && d.model_loaded === false) { /* fall through to cleaning view */ }
-        else { showError('unexpected response from server'); return; }
-      }
-
-      if (d.model_loaded === false) {
-        v.textContent = 'Cleaning only (no model loaded)';
-        v.style.color = 'var(--yellow)';
-        knock.textContent = '';
-        causes.innerHTML = '';
-        const c = d.cleaning || {};
-        segments.textContent = `Isolated ${(c.segments||[]).length} span(s), ${c.kept_seconds||0}s` +
-          (c.is_music ? ' — looks like music' : '');
-        document.getElementById('note').textContent =
-          'Train a model (cardiag train) or set CARDIAG_MODEL to enable diagnosis.';
-        return;
-      }
-
-      const color = {fault:'var(--red)', normal:'var(--green)', uncertain:'var(--yellow)'}[d.verdict];
-      v.textContent = `${d.verdict.toUpperCase()}  ·  fault p=${d.fault_probability.toFixed(2)}`;
-      v.style.color = color;
-      knock.textContent = d.engine_knock_probability >= 0.5
-        ? `⚠ Engine knock likely (p=${d.engine_knock_probability.toFixed(2)}) — check oil`
-        : '';
-
-      causes.innerHTML = (d.causes || []).map(c => `
-        <div class="bar-row">
-          <div class="pct">${Math.round(c.p*100)}%</div>
-          <div class="track"><div class="bar" style="width:${Math.round(c.p*100)}%"></div></div>
-          <div class="part" title="${c.note||''}">${c.part}</div>
-        </div>`).join('');
-
-      const segs = d.segments || [];
-      const kept = segs.reduce((a,s)=>a+(s.duration||0),0);
-      segments.innerHTML = segs.length
-        ? `<span class="chip">cleaned</span> isolated ${segs.length} mechanical span(s), ${kept.toFixed(1)}s total`
-        : `<span class="chip">whole clip</span> cleaning isolated no distinct span`;
-      document.getElementById('note').textContent = d.note || '';
-    }
-  </script>
+$("#go").onclick=()=>{
+  const u=$("#url").value.trim(), f=$("#file").files[0]; const fd=new FormData();
+  if(f) fd.append("file",f);
+  else if(/^https?:\/\//.test(u)) fd.append("url",u);
+  else return fail("paste a URL (http…) or upload a file");
+  run(fd);
+};
+$("#pick").onclick=()=>$("#file").click();
+$("#file").onchange=()=>{ if($("#file").files[0]){ $("#url").value=$("#file").files[0].name; $("#go").click(); } };
+$("#url").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#go").click(); });
+$$(".ex").forEach(a=>a.onclick=e=>{ e.preventDefault(); $("#url").value=a.dataset.u; $("#file").value=""; $("#go").click(); });
+const drop=$("#drop");
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f){ $("#file").files=e.dataTransfer.files;
+  $("#url").value=f.name; $("#go").click(); }});
+</script>
 </body>
 </html>

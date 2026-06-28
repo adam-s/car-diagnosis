@@ -14,6 +14,17 @@ All notable changes to this project are documented here. Format loosely follows
 - Bundled fixture embeddings for offline training/tests; snapshot regression
   harness; robustness + honesty test suites. ruff + mypy + pre-commit + CI.
 
+### Added (live visualization UI)
+- **A streaming web UI that shows the pipeline as it happens.** Paste a
+  YouTube/TikTok/Reddit link or drop a file; the clip is fetched (yt-dlp),
+  cleaned, and diagnosed while the browser animates each stage over
+  Server-Sent Events: a waveform timeline where speech is struck out, music is
+  dropped, and the surviving mechanical span glows green; a log-mel spectrogram;
+  a narrated pipeline timeline; and a temperature-calibrated diagnosis with a
+  ranked top-3 cause shortlist. New `cardiag/web/explain.py` (instrumented
+  pipeline generator) + `/api/diagnose/stream` SSE endpoint; the single-page
+  front end uses D3 from a CDN and no build step (clone-and-run preserved).
+
 ### Added (measurement & calibration)
 - **Rigorous, committed eval harness** (`python -m cardiag.training.eval.scorecard`
   → `docs/SCORECARD.md`): by-video `StratifiedGroupKFold` (5×5, leakage-asserted),

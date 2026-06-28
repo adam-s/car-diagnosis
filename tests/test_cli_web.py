@@ -93,3 +93,25 @@ def test_web_diagnose_endpoint_cleaning_path(client, tone_wav, monkeypatch):
     body = r.json()
     assert body["model_loaded"] is False
     assert "cleaning" in body
+
+
+def _events(text):
+    return [ln[len("event: "):] for ln in text.splitlines() if ln.startswith("event: ")]
+
+
+def test_stream_requires_input(client):
+    # neither file nor url -> a clean SSE 'error' event, not a crash
+    r = client.post("/api/diagnose/stream", data={})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "error" in _events(r.text)
+
+
+def test_stream_bad_audio_emits_error_event(client, tmp_path):
+    # explain() reports unreadable audio cleanly (fails at load, before any CLAP)
+    bad = tmp_path / "x.wav"
+    bad.write_text("not audio at all")
+    with open(bad, "rb") as fh:
+        r = client.post("/api/diagnose/stream", files={"file": ("x.wav", fh, "audio/wav")})
+    assert r.status_code == 200
+    assert "error" in _events(r.text)

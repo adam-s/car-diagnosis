@@ -9,14 +9,16 @@ still runs and returns the cleaning result (isolated spans, music flag).
 """
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import tempfile
 import threading
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from cardiag import clean
 
@@ -54,6 +56,69 @@ def _safe_suffix(filename: str | None) -> str:
     suffix = Path(filename or "").suffix.lower()
     suffix = "".join(c for c in suffix if c.isalnum() or c == ".")[:8]
     return suffix if suffix in _OK_SUFFIX else ".wav"
+
+
+def _sse(event: str, payload: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+@app.post("/api/diagnose/stream")
+async def diagnose_stream(file: UploadFile | None = File(None),
+                          url: str | None = Form(None)) -> StreamingResponse:
+    """Stream the pipeline stage-by-stage as Server-Sent Events for the live UI.
+
+    Accepts either an uploaded ``file`` or a ``url`` (YouTube/TikTok/Reddit). Each
+    cleaning + diagnosis stage is emitted as it completes so the front end can
+    animate the timeline. Heavy work runs in Starlette's threadpool (sync
+    generator) and is serialized by ``_LOCK`` (torch/MPS is not thread-safe)."""
+    from cardiag.web import explain
+
+    workdir = tempfile.mkdtemp(prefix="cardiag_")
+    src, title, path, err = "upload", "", None, None
+    if url:
+        src = explain.platform_of(url)
+        title = url
+    elif file is not None:
+        path = Path(workdir) / f"upload{_safe_suffix(file.filename)}"
+        total = 0
+        with open(path, "wb") as fh:
+            while chunk := await file.read(1 << 20):
+                total += len(chunk)
+                if total > MAX_BYTES:
+                    err = f"file too large (>{MAX_BYTES // 1024 // 1024} MB)"
+                    break
+                fh.write(chunk)
+        title = file.filename or "your clip"
+        if total == 0:
+            err = "empty upload"
+    else:
+        err = "provide a file or a url"
+
+    def gen():
+        nonlocal path, title
+        try:
+            if err:
+                yield _sse("error", {"message": err})
+                return
+            if url:
+                yield _sse("status", {"message": f"fetching audio from {src}…"})
+                try:
+                    path, got = explain.acquire_url(url, Path(workdir))
+                    title = got or url
+                except ValueError as e:
+                    yield _sse("error", {"message": str(e)})
+                    return
+            with _LOCK:
+                for name, payload in explain.explain(path, source=src, title=title):
+                    yield _sse(name, payload)
+        except Exception as e:                              # never leak a 500 mid-stream
+            yield _sse("error", {"message": f"unexpected error: {type(e).__name__}"})
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
 
 
 @app.post("/diagnose")

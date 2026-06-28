@@ -370,10 +370,64 @@ def _new_head():
                                             random_state=0))
 
 
-def _cv_report(X, y, groups, n_splits: int = 5, repeats: int = 5) -> dict:
+def _source_of(r: dict) -> str:
+    """Recording source (youtube/tiktok/reddit) from a clip's wav path."""
+    w = r.get("wav", "") or ""
+    for s in ("youtube", "tiktok", "reddit"):
+        if f"/{s}/" in w:
+            return s
+    return r.get("source", "?")
+
+
+def _self_confidence(X, y, groups):
+    """Out-of-fold P(observed label) per clip — the confident-learning signal
+    (Northcutt et al. 2021). A clip whose audio the model confidently assigns to a
+    *different* class than its (weak, keyword-derived) label is a likely mislabel."""
+    from sklearn.model_selection import StratifiedGroupKFold
+    y = np.asarray(y)
+    groups = np.asarray(groups)
+    cls = sorted(set(y))
+    ns = max(2, min(4, min(len(set(groups[y == c])) for c in cls)))
+    sp = np.full(len(y), 1.0)
+    for tr, te in StratifiedGroupKFold(ns, shuffle=True, random_state=0).split(X, y, groups):
+        if len(set(y[tr])) < 2:
+            continue
+        clf = _new_head().fit(X[tr], y[tr])
+        P = clf.predict_proba(X[te])
+        C = list(clf.classes_)
+        for j, i in enumerate(te):
+            sp[i] = P[j][C.index(y[i])] if y[i] in C else 0.0
+    return sp
+
+
+def _prune_keep(X, y, groups, sources, frac: float):
+    """Boolean keep-mask dropping the lowest-self-confidence `frac` of clips WITHIN
+    each source (per the literature: global pruning would just re-discover the
+    YouTube-vs-rest source split, not real mislabels). Never drops so aggressively
+    that a class disappears."""
+    if frac <= 0:
+        return np.ones(len(y), bool)
+    y = np.asarray(y)
+    sources = np.asarray(sources)
+    sp = _self_confidence(X, y, groups)
+    keep = np.ones(len(y), bool)
+    for s in set(sources):
+        idx = np.where(sources == s)[0]
+        k = int(len(idx) * frac)
+        if k > 0:
+            keep[idx[np.argsort(sp[idx])[:k]]] = False
+    if len(set(y[keep])) < len(set(y)):       # don't let a class vanish
+        return np.ones(len(y), bool)
+    return keep
+
+
+def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
+               n_splits: int = 5, repeats: int = 5) -> dict:
     """Honest by-video performance: repeated StratifiedGroupKFold balanced accuracy
     (mean±std), not a single arbitrary split. Balanced accuracy because the corpus
-    is class-skewed (raw accuracy vs majority misleads — see docs/SCORECARD.md)."""
+    is class-skewed (raw accuracy vs majority misleads — see docs/SCORECARD.md).
+    With ``prune_frac`` the confident-learning prune is applied WITHIN each train
+    fold only (test stays untouched), so the estimate reflects the shipped pipeline."""
     from sklearn.metrics import balanced_accuracy_score
     from sklearn.model_selection import StratifiedGroupKFold
     y = np.asarray(y)
@@ -386,6 +440,10 @@ def _cv_report(X, y, groups, n_splits: int = 5, repeats: int = 5) -> dict:
         for tr, te in sgkf.split(X, y, groups):
             if len(set(y[tr])) < 2:
                 continue
+            if prune_frac > 0 and sources is not None:
+                k = _prune_keep(X[tr], y[tr], groups[tr], sources[tr], prune_frac)
+                if len(set(y[tr][k])) >= 2:
+                    tr = tr[k]
             clf = _new_head().fit(X[tr], y[tr])
             accs.append(balanced_accuracy_score(y[te], clf.predict(X[te])))
     maj = max(Counter(y).values()) / len(y)
@@ -433,44 +491,52 @@ def _fit_temperature(X, y, groups) -> float:
     return round(float(minimize_scalar(nll, bounds=(0.3, 10.0), method="bounded").x), 3)
 
 
-def _fit(rows, labelf, embed, min_class: int):
+def _fit(rows, labelf, embed, min_class: int, prune_noisy: float = 0.0):
     """Fit a linear head with an honest by-video CV report + temperature scaling.
 
     Measures with repeated grouped CV, then refits the shipped model on ALL the
-    data (no held-out data is wasted), and fits a calibration temperature. Falls
-    back to a constant ``DummyClassifier`` when there isn't enough data for two
-    classes, so the head always exists. Returns (clf, report, temperature)."""
+    data (no held-out data is wasted), and fits a calibration temperature. With
+    ``prune_noisy`` (0..1) the confident-learning prune drops that fraction of the
+    lowest-self-confidence (likely-mislabeled) clips per source before the final
+    fit, and the CV report reflects it. Falls back to a constant
+    ``DummyClassifier`` when there isn't enough data for two classes, so the head
+    always exists. Returns (clf, report, temperature)."""
     from sklearn.dummy import DummyClassifier
 
     dim = len(next(iter(embed.values()))) if embed else 512
-    data = [(embed[r["clip_id"]], labelf(r), r.get("video", r["clip_id"]))
+    data = [(embed[r["clip_id"]], labelf(r), r.get("video", r["clip_id"]), _source_of(r))
             for r in rows if labelf(r) is not None and r["clip_id"] in embed]
-    counts = Counter(lbl for _, lbl, _ in data)
+    counts = Counter(lbl for _, lbl, _, _ in data)
     keep = {c for c, n in counts.items() if n >= min_class}
-    data = [(x, lbl, g) for x, lbl, g in data if lbl in keep]
-    labels = {lbl for _, lbl, _ in data}
+    data = [(x, lbl, g, s) for x, lbl, g, s in data if lbl in keep]
+    labels = {lbl for _, lbl, _, _ in data}
 
     if len(labels) < 2:                     # not enough to learn anything
-        X = np.array([x for x, _, _ in data]) if data else np.zeros((1, dim))
-        y = [lbl for _, lbl, _ in data] or [next(iter(labels), "unknown")]
+        X = np.array([x for x, _, _, _ in data]) if data else np.zeros((1, dim))
+        y = [lbl for _, lbl, _, _ in data] or [next(iter(labels), "unknown")]
         return DummyClassifier(strategy="prior").fit(X, y), {
             "degenerate": True, "classes": sorted(labels), "n": len(data)}, 1.0
 
-    X = np.array([x for x, _, _ in data])
-    y = np.array([lbl for _, lbl, _ in data])
-    groups = np.array([g for _, _, g in data])
+    X = np.array([x for x, _, _, _ in data])
+    y = np.array([lbl for _, lbl, _, _ in data])
+    groups = np.array([g for _, _, g, _ in data])
+    sources = np.array([s for _, _, _, s in data])
     report = {"classes": sorted(labels), "n": len(data), "degenerate": False,
-              **_cv_report(X, y, groups)}
+              **_cv_report(X, y, groups, sources, prune_noisy)}
     temperature = _fit_temperature(X, y, groups)
     report["temperature"] = temperature
-    clf = _new_head().fit(X, y)             # ship a model trained on ALL the data
+    keep_mask = _prune_keep(X, y, groups, sources, prune_noisy)
+    if prune_noisy > 0:
+        report["pruned_noisy"] = {"frac": prune_noisy, "dropped": int((~keep_mask).sum())}
+    clf = _new_head().fit(X[keep_mask], y[keep_mask])   # ship a model on the kept data
     return clf, report, temperature
 
 
-def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
+def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0) -> dict:
     """Fit the three heads + triage from rows and a clip_id->embedding map, and
     save the model artifacts. Shared by the CLAP path and the offline fixtures
-    path. ``cause_fn(row)`` yields the cause label."""
+    path. ``cause_fn(row)`` yields the cause label. ``prune_noisy`` (0..1) enables
+    confident-learning label pruning per head."""
     import joblib
 
     def _dump(obj, dest):                    # atomic: temp + os.replace
@@ -481,10 +547,11 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
     heads, report, temps = {}, {}, {}
     heads["kind"], report["kind"], temps["kind"] = _fit(
         [r for r in rows if r.get("kind") in ("fault", "normal")],
-        lambda r: r.get("kind"), embed, min_class)
-    heads["knock"], report["knock"], temps["knock"] = _fit(rows, _knock_of, embed, min_class)
+        lambda r: r.get("kind"), embed, min_class, prune_noisy)
+    heads["knock"], report["knock"], temps["knock"] = _fit(
+        rows, _knock_of, embed, min_class, prune_noisy)
     heads["cause"], report["cause"], temps["cause"] = _fit(
-        [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class)
+        [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class, prune_noisy)
 
     # refuse to ship a model where EVERY head is a constant (e.g. --min-class too
     # high, or a single-class corpus) — that would be a silent garbage model.
@@ -509,7 +576,8 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
         c = cause_fn(r)
         return "engine" if c in _ENGINE else "chassis" if c in _CHASSIS else None
 
-    triage_clf, report["triage"], triage_temp = _fit(rows, triage_label, embed, min_class)
+    triage_clf, report["triage"], triage_temp = _fit(
+        rows, triage_label, embed, min_class, prune_noisy)
     classes = list(getattr(triage_clf, "classes_",
                            report["triage"].get("classes", ["engine", "chassis"])))
     _dump({"model": triage_clf, "classes": classes, "temperature": triage_temp},
@@ -523,8 +591,13 @@ def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
     return report
 
 
-def train(min_class: int = 2) -> dict:
-    """Embed every scraped clip with CLAP and train the heads + triage model."""
+def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
+    """Embed every scraped clip with CLAP and train the heads + triage model.
+
+    ``prune_noisy`` (0..1) enables confident-learning label pruning: drop that
+    fraction of the lowest-self-confidence (likely-mislabeled) clips per source
+    before fitting. Measured ~+0.05 balanced accuracy on the fault/triage heads on
+    the reference corpus (see docs/RESULTS.md); 0.15 is a reasonable value."""
     import librosa
 
     rows = load_corpus()
@@ -543,7 +616,7 @@ def train(min_class: int = 2) -> dict:
         if len(y) < config.SR_CLAP // 2:
             continue
         embed[r["clip_id"]] = embed_clip(y)
-    return _train_heads(rows, embed, min_class, _cause_of)
+    return _train_heads(rows, embed, min_class, _cause_of, prune_noisy)
 
 
 FIXTURES = Path(__file__).resolve().parent.parent / "_fixtures"

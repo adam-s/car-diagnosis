@@ -233,6 +233,11 @@ def train(
     fixtures: bool = typer.Option(False, "--fixtures",
                                   help="Train OFFLINE on bundled fixture "
                                        "embeddings (no scrape, no CLAP download)."),
+    prune_noisy: float = typer.Option(
+        0.0, "--prune-noisy", min=0.0, max=0.5,
+        help="Confident-learning label cleaning: drop this fraction (e.g. 0.15) of "
+             "the likely-mislabeled clips per source before fitting. Measured "
+             "~+0.05 balanced accuracy on the fault/triage heads (docs/RESULTS.md)."),
 ):
     """Embed the scraped corpus with CLAP and train the fault/knock/cause +
     triage models into data/training/. Use --fixtures to train instantly offline
@@ -243,7 +248,7 @@ def train(
         _nudge("now diagnose a clip:  cardiag diagnose <clip.wav>",
                "ready for a real model? scrape:  cardiag scrape youtube")
     else:
-        build.train(min_class=min_class)
+        build.train(min_class=min_class, prune_noisy=prune_noisy)
         _nudge("diagnose a clip:  cardiag diagnose <clip.wav>",
                "audit the corpus:  cardiag gallery -o gallery.html")
 

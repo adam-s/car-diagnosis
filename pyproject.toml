@@ -44,6 +44,8 @@ scrape = [
     "playwright==1.51.0",   # MUST match Camoufox's Firefox 135 (newer crashes on pageError)
     "ocrmac>=1.0; sys_platform == 'darwin'",
 ]
+# Visualization for `cardiag inspect` (spectrograms / waveforms).
+viz = ["matplotlib>=3.7"]
 # Optional cloud-GPU batch jobs (Modal). Not needed for local use.
 cloud = ["modal>=0.64"]
 # Local web upload app.
@@ -71,6 +73,7 @@ Documentation = "https://github.com/adamsohn/car-diagnosis/tree/main/docs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cardiag"]
+artifacts = ["src/cardiag/_fixtures/*.npz", "src/cardiag/web/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

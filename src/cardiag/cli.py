@@ -104,6 +104,22 @@ def clean(
 
 
 @app.command()
+def inspect(
+    audio: list[str] = typer.Argument(None, help="Clip(s) to inspect."),
+    sample: int = typer.Option(0, help="Instead, sample N clips from data/*/clips."),
+    out: str = typer.Option("report.html", "-o", "--out", help="Output HTML file."),
+    no_clap: bool = typer.Option(False, "--no-clap", help="Skip CLAP scores (faster)."),
+):
+    """Render a self-contained HTML report showing what the pipeline does to each
+    clip: isolated spans, spectrograms, CLAP scores, and before/after audio."""
+    from cardiag import inspect as inspect_mod
+    files = list(audio or [])
+    if sample:
+        files += [str(p) for p in inspect_mod.sample_clips(sample)]
+    inspect_mod.report(files, out_path=out, with_clap=not no_clap)
+
+
+@app.command()
 def serve(
     host: str = typer.Option("127.0.0.1"),
     port: int = typer.Option(8000),
@@ -143,11 +159,20 @@ def scrape(
 
 
 @app.command()
-def train(min_class: int = typer.Option(2, help="Min samples per class to keep.")):
+def train(
+    min_class: int = typer.Option(2, help="Min samples per class to keep."),
+    fixtures: bool = typer.Option(False, "--fixtures",
+                                  help="Train OFFLINE on bundled fixture "
+                                       "embeddings (no scrape, no CLAP download)."),
+):
     """Embed the scraped corpus with CLAP and train the fault/knock/cause +
-    triage models into data/training/."""
+    triage models into data/training/. Use --fixtures to train instantly offline
+    on the bundled sample, to learn the flow before a real scrape."""
     from cardiag.pipeline import build
-    build.train(min_class=min_class)
+    if fixtures:
+        build.train_from_fixtures(min_class=min_class)
+    else:
+        build.train(min_class=min_class)
 
 
 @app.command()

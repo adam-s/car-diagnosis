@@ -318,6 +318,46 @@ def _fit(rows, labelf, embed, min_class: int):
     return clf, report
 
 
+def _train_heads(rows, embed, min_class: int, cause_fn) -> dict:
+    """Fit the three heads + triage from rows and a clip_id->embedding map, and
+    save the model artifacts. Shared by the CLAP path and the offline fixtures
+    path. ``cause_fn(row)`` yields the cause label."""
+    import joblib
+
+    heads, report = {}, {}
+    heads["kind"], report["kind"] = _fit(
+        [r for r in rows if r.get("kind") in ("fault", "normal")],
+        lambda r: r.get("kind"), embed, min_class)
+    heads["knock"], report["knock"] = _fit(rows, _knock_of, embed, min_class)
+    heads["cause"], report["cause"] = _fit(
+        [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class)
+
+    if {"fault", "normal"} - set(report["kind"].get("classes", [])):
+        print("  note: only one kind class present; the fault/normal head is a "
+              "constant. Scrape YouTube (it runs normal queries) for both classes.")
+
+    paths.TRAIN_DATA.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"heads": heads, "emb": "clap"}, paths.MODEL_CLAP)
+
+    def triage_label(r):
+        if r.get("kind") != "fault":
+            return None
+        c = cause_fn(r)
+        return "engine" if c in _ENGINE else "chassis" if c in _CHASSIS else None
+
+    triage_clf, report["triage"] = _fit(rows, triage_label, embed, min_class)
+    classes = list(getattr(triage_clf, "classes_",
+                           report["triage"].get("classes", ["engine", "chassis"])))
+    joblib.dump({"model": triage_clf, "classes": classes}, paths.MODEL_TRIAGE)
+
+    (paths.TRAIN_DATA / "train_report.json").write_text(json.dumps(report, indent=2))
+    print("\n=== training report ===")
+    print(json.dumps(report, indent=2))
+    print(f"\nsaved model -> {paths.MODEL_CLAP}")
+    print(f"saved triage -> {paths.MODEL_TRIAGE}")
+    return report
+
+
 def train(min_class: int = 2) -> dict:
     """Embed every scraped clip with CLAP and train the heads + triage model."""
     import librosa
@@ -338,34 +378,27 @@ def train(min_class: int = 2) -> dict:
         embed[r["clip_id"]] = clap.embed([y])[0]
         if (i + 1) % 50 == 0:
             print(f"  {i+1}/{len(rows)}", flush=True)
+    return _train_heads(rows, embed, min_class, _cause_of)
 
-    heads, report = {}, {}
-    heads["kind"], report["kind"] = _fit(
-        [r for r in rows if r.get("kind") in ("fault", "normal")],
-        lambda r: r.get("kind"), embed, min_class)
-    heads["knock"], report["knock"] = _fit(rows, _knock_of, embed, min_class)
-    heads["cause"], report["cause"] = _fit(
-        [r for r in rows if r.get("kind") == "fault"], _cause_of, embed, min_class)
 
-    if {"fault", "normal"} - set(report["kind"].get("classes", [])):
-        print("  note: only one kind class scraped; the fault/normal head is a "
-              "constant. Scrape YouTube (it runs normal queries) for both classes.")
+FIXTURES = Path(__file__).resolve().parent.parent / "_fixtures"
 
-    paths.TRAIN_DATA.mkdir(parents=True, exist_ok=True)
-    import joblib
-    joblib.dump({"heads": heads, "emb": "clap"}, paths.MODEL_CLAP)
 
-    triage_clf, report["triage"] = _fit(rows, _triage_of, embed, min_class)
-    classes = list(getattr(triage_clf, "classes_",
-                           report["triage"].get("classes", ["engine", "chassis"])))
-    joblib.dump({"model": triage_clf, "classes": classes}, paths.MODEL_TRIAGE)
-
-    (paths.TRAIN_DATA / "train_report.json").write_text(json.dumps(report, indent=2))
-    print("\n=== training report ===")
-    print(json.dumps(report, indent=2))
-    print(f"\nsaved model -> {paths.MODEL_CLAP}")
-    print(f"saved triage -> {paths.MODEL_TRIAGE}")
-    return report
+def train_from_fixtures(min_class: int = 2) -> dict:
+    """Train OFFLINE on the bundled fixture embeddings — no scrape, no network,
+    no CLAP download. Lets a fresh clone produce a model in seconds to learn the
+    flow before running the real scrape."""
+    npz = FIXTURES / "embeddings.npz"
+    if not npz.exists():
+        raise SystemExit(f"no fixture embeddings at {npz} (rebuild with "
+                         f"scripts/make_fixtures.py).")
+    z = np.load(npz, allow_pickle=True)
+    rows = [{"clip_id": str(c), "video": str(v), "kind": str(k), "l1": str(l),
+             "cause": str(ca)} for c, v, k, l, ca in
+            zip(z["clip_id"], z["video"], z["kind"], z["l1"], z["cause"])]
+    embed = {str(c): x for c, x in zip(z["clip_id"], z["X"])}
+    print(f"training offline on {len(rows)} bundled fixture embeddings…")
+    return _train_heads(rows, embed, min_class, lambda r: r.get("cause") or None)
 
 
 # ===================================================================== demo

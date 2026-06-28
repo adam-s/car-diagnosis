@@ -103,6 +103,8 @@ svg{display:block;width:100%;overflow:visible}
 .spec-hi{top:5px} .spec-lo{bottom:6px}
 .spec-cap{position:absolute;right:8px;bottom:6px;font-family:var(--font-sans);font-size:10px;
   color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.span-tag{font-family:var(--font-sans);font-size:10px;font-weight:600;letter-spacing:.02em}
+.span-num{font-family:var(--font-sans);font-size:10px;font-weight:700}
 
 .log{position:relative;padding-left:26px}
 .log::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
@@ -264,7 +266,7 @@ function initWF(peaks,duration){
   const yA=d3.scaleLinear().domain([-1,1]).range([H-m.b,m.t]);
   const area=d3.area().x((d,i)=>x(i/peaks.length*DUR))
     .y0(d=>yA(Math.max(-1,d[0]*g))).y1(d=>yA(Math.min(1,d[1]*g)));
-  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg; WF.area=area; WF.peaks=peaks;
+  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg; WF.area=area; WF.peaks=peaks; WF.kept=[];
   WF.wash=svg.append("g");                                  // removed-span washes (behind)
   svg.append("path").attr("d",area(peaks)).attr("fill","var(--ink-faded)").attr("opacity",.5); // faint base = "raw"
   WF.emph=svg.append("g");                                  // kept spans, redrawn solid (in front)
@@ -279,24 +281,43 @@ function sweep(){ if(!WF.scan)return;
     .attr("x1",WF.x(DUR)).attr("x2",WF.x(DUR)).on("end",()=>WF.scan.transition().duration(300).attr("opacity",0));
 }
 // removed audio -> a translucent wash (the faint base shows through = discarded)
-function washSpans(spans,color,op){
+// plus a small tag naming WHY it was removed (speech / music)
+function washSpans(spans,color,op,tag){
   if(!WF.wash||!spans)return;
-  spans.forEach(([s,e])=>WF.wash.append("rect").attr("x",WF.x(s)).attr("y",WF.m.t)
-    .attr("height",WF.H-WF.m.b-WF.m.t).attr("width",0).attr("fill",color).attr("opacity",0)
-    .transition().duration(420).ease(d3.easeCubicOut)
-    .attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("opacity",op));
+  spans.forEach(([s,e])=>{
+    const w=Math.max(1,WF.x(e)-WF.x(s));
+    WF.wash.append("rect").attr("x",WF.x(s)).attr("y",WF.m.t).attr("height",WF.H-WF.m.b-WF.m.t)
+      .attr("width",0).attr("fill",color).attr("opacity",0)
+      .transition().duration(420).ease(d3.easeCubicOut).attr("width",w).attr("opacity",op);
+    if(tag&&w>34)WF.wash.append("text").attr("x",WF.x(s)+w/2).attr("y",WF.m.t+13).attr("text-anchor","middle")
+      .attr("class","span-tag").attr("fill",color).text(tag+" ✕").attr("opacity",0)
+      .transition().delay(220).duration(300).attr("opacity",.95);
+  });
 }
-// kept audio -> redraw the waveform slice solid green (the "survives" emphasis)
+// kept audio -> redraw the waveform slice solid green (the "survives the clean" /
+// "broken into spans for inference" emphasis). Tracked so the music gate can later
+// revoke the green from any span it drops.
 function keepSpans(spans){
   if(!WF.emph||!spans)return;
   spans.forEach(([s,e])=>{
-    const id="k"+(WF.uid++);
+    const id="k"+(WF.uid++), w=Math.max(1,WF.x(e)-WF.x(s));
     WF.svg.append("clipPath").attr("id",id).append("rect")
-      .attr("x",WF.x(s)).attr("y",0).attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("height",WF.H);
-    WF.emph.append("path").attr("d",WF.area(WF.peaks)).attr("clip-path",`url(#${id})`)
-      .attr("fill","var(--viz-success-ink)").attr("opacity",0)
-      .transition().duration(480).ease(d3.easeCubicOut).attr("opacity",.92);
+      .attr("x",WF.x(s)).attr("y",0).attr("width",w).attr("height",WF.H);
+    const path=WF.emph.append("path").attr("d",WF.area(WF.peaks)).attr("clip-path",`url(#${id})`)
+      .attr("fill","var(--viz-success-ink)").attr("opacity",0);
+    path.transition().duration(480).ease(d3.easeCubicOut).attr("opacity",.92);
+    WF.kept.push({s,e,path});
   });
+}
+// the music gate drops some candidate spans -> revoke their green (fade back to the
+// faint base) and wash them purple with a "music ✕" tag, so dropped reads as dropped
+function dropMusic(spans){
+  if(!spans)return;
+  spans.forEach(([s,e])=>{
+    const hit=WF.kept.find(k=>Math.abs(k.s-s)<0.06);
+    if(hit)hit.path.transition().duration(400).attr("opacity",0);
+  });
+  washSpans(spans,"var(--viz-music)",.42,"music");
 }
 
 function drawSpec(mel,f,t){
@@ -350,11 +371,28 @@ function showDiag(d){
     "“uncertain” rather than guessing.</em>";
 }
 
+// --- choreography: events stream in fast, but we PLAY them out with a beat
+// between stages so the cleaning is watchable step by step ---
+let Q=[], playing=false, streamDone=false;
+const BEAT={waveform:650,stage:560,spectrogram:300,diagnosis:240,done:0,status:80,meta:120};
+function enqueue(ev,d){ Q.push([ev,d]); if(!playing) playLoop(); }
+async function playLoop(){
+  playing=true;
+  while(Q.length){
+    const [ev,d]=Q.shift();
+    try{ render(ev,d); }catch(e){}
+    await new Promise(r=>setTimeout(r, BEAT[ev]!=null?BEAT[ev]:60));
+  }
+  playing=false;
+  if(streamDone){ $("#go").disabled=false; $("#go").textContent="Diagnose"; }
+}
+
 async function run(form){
   $("#err").style.display="none"; $("#stage-wrap").style.display="block";
   $("#log").innerHTML=""; $("#diagnosis").style.display="none";
   $("#viz-card").style.display="none"; $("#spec-wrap").style.display="none";
   $("#go").disabled=true; $("#go").innerHTML='<span class="spin"></span>';
+  Q=[]; playing=false; streamDone=false; WF.uid=0;
   buildRail(); railState("acquire","active");
   let resp;
   try{ resp=await fetch("/api/diagnose/stream",{method:"POST",body:form}); }
@@ -366,15 +404,19 @@ async function run(form){
     buf+=dec.decode(value,{stream:true}); let i;
     while((i=buf.indexOf("\n\n"))>=0){ handle(buf.slice(0,i)); buf=buf.slice(i+2); }
   }
-  $("#go").disabled=false; $("#go").textContent="Diagnose";
+  streamDone=true;
+  if(!playing && !Q.length){ $("#go").disabled=false; $("#go").textContent="Diagnose"; }
 }
 function fail(msg){ $("#err").textContent=msg; $("#err").style.display="block";
-  $("#go").disabled=false; $("#go").textContent="Diagnose"; }
+  streamDone=true; $("#go").disabled=false; $("#go").textContent="Diagnose"; }
 
 function handle(frame){
   const m=/^event: (.+)\ndata: (.*)$/s.exec(frame); if(!m)return;
-  const ev=m[1], d=JSON.parse(m[2]);
-  if(ev==="status"){ return; }
+  enqueue(m[1], JSON.parse(m[2]));
+}
+
+function render(ev,d){
+  if(ev==="status"){ $("#title").textContent=d.message||""; return; }
   if(ev==="error"){ fail(d.message); return; }
   if(ev==="meta"){ railState("acquire","done");
     $("#src").textContent=d.source; $("#title").textContent=d.title||""; return; }
@@ -383,10 +425,10 @@ function handle(frame){
   if(ev==="spectrogram"){ drawSpec(d.mel,d.f,d.t); return; }
   if(ev==="stage"){
     railState(d.id,"active");
-    if(d.id==="vad")washSpans(d.speech,"var(--viz-error)",.30);
+    if(d.id==="vad")washSpans(d.speech,"var(--viz-error)",.30,"speech");
     if(d.id==="regions")keepSpans(d.regions);
     if(d.id==="music"&&d.spans){
-      washSpans(d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]),"var(--viz-music)",.42);
+      dropMusic(d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]));
     }
     addLog(d.label,d.narration);
     const order=["energy","vad","regions","music","embed"];

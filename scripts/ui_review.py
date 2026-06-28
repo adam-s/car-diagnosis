@@ -82,9 +82,41 @@ def build_clips(outdir: Path) -> list[tuple[str, Path]]:
         except Exception as e:
             print(f"  (narrated clip skipped: {e})")
 
-    # 2-4) real clips: a knock (fault), a normal, a squeal — real spectrograms + verdicts
-    for label, kind, l1 in [("knock_fault", "fault", "knocking"),
-                            ("normal_idle", "normal", "normal smooth"),
+    # 2) music + mechanical: a synthesized melody (CLAP flags it ~0.98 as music) then
+    #    a real mechanical clip -> the music gate drops the musical span (purple)
+    grind = _real_clip("fault", "grinding")
+    if grind is not None:
+        sr = SR
+        notes = [261, 330, 392, 523, 392, 330, 440, 349]
+
+        def _tone(f, d=0.28):
+            t = np.linspace(0, d, int(sr * d), endpoint=False)
+            wav = np.sin(2*np.pi*f*t) + 0.5*np.sin(2*np.pi*2*f*t) + 0.3*np.sin(2*np.pi*3*f*t)
+            return (wav * np.hanning(len(t))).astype(np.float32)
+        mel = np.concatenate([0.3 * _tone(n) for n in notes])
+        beat = 0.6 + 0.4 * np.sign(np.sin(2*np.pi*2*np.linspace(0, len(mel)/sr, len(mel))))
+        music = (mel * beat).astype(np.float32)
+        # >0.5s gap so the cascade keeps music + mechanical as SEPARATE spans
+        # (one dropped as music, one kept) rather than merging them into one
+        y = np.concatenate([music, np.zeros(int(0.9*sr), np.float32), _load(grind)])
+        p = outdir / "2_music_then_grind.wav"
+        sf.write(p, y, SR)
+        clips.append(("music_drop", p))
+
+    # 3) multi-span: three different real sounds with gaps -> the cascade breaks the
+    #    clip into several isolated spans, each numbered and diagnosed
+    parts = [c for c in (_real_clip("fault", "knocking"), _real_clip("fault", "squealing"),
+                         _real_clip("fault", "grinding")) if c is not None]
+    if len(parts) >= 2:
+        gap = np.zeros(int(0.5 * SR), np.float32)
+        segs = []
+        for c in parts[:3]:
+            segs += [_load(c)[:int(1.6 * SR)], gap]
+        sf.write(outdir / "3_multi_span.wav", np.concatenate(segs), SR)
+        clips.append(("multi_span", outdir / "3_multi_span.wav"))
+
+    # 4-5) real single clips: a normal idle and a squeal — real spectrograms + verdicts
+    for label, kind, l1 in [("normal_idle", "normal", "normal smooth"),
                             ("squeal_fault", "fault", "squealing")]:
         c = _real_clip(kind, l1)
         if c:

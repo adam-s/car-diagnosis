@@ -121,3 +121,14 @@ def test_audio_endpoint_rejects_nonhex_and_missing(client):
     # the cached-audio server must validate ids (no path traversal) and 404 unknown
     assert client.get("/api/audio/zzzz").status_code == 400          # non-hex id
     assert client.get("/api/audio/deadbeefdeadbeef").status_code == 404  # valid hex, no file
+
+
+def test_favicon_served(client):
+    r = client.get("/favicon.svg")
+    assert r.status_code == 200 and "svg" in r.headers["content-type"]
+
+
+def test_explain_endpoint_validates_input(client):
+    # no input -> 400; a non-hex audio_id -> 400 (no path traversal); both CLAP-free
+    assert client.post("/api/explain", data={}).status_code == 400
+    assert client.post("/api/explain", data={"audio_id": "../x"}).status_code == 400

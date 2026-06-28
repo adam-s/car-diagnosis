@@ -188,6 +188,20 @@ def review(clips, base_url: str, outdir: Path) -> None:
                     pg.screenshot(path=str(outdir / f"ground_{label}.png"), full_page=True)
             except Exception:
                 pass
+            # occlusion-saliency "explain why": click, wait for the overlay, screenshot
+            try:
+                exb = pg.query_selector("#explain")
+                if exb and exb.is_visible():
+                    exb.click()
+                    pg.wait_for_function("document.querySelector('#sal').classList.contains('on')", timeout=60000)
+                    pg.wait_for_timeout(700)
+                    pan = pg.query_selector("#viz-card")
+                    if pan:
+                        pan.screenshot(path=str(outdir / f"explain_{label}.png"))
+                    why = (pg.text_content("#why") or "")[:90]
+                    print(f"    explain: {why}")
+            except Exception as e:
+                print(f"    explain failed: {e}")
             verdict = pg.text_content("#verdict") or "?"
             band = pg.text_content("#band") or ""
             print(f"  {label:16} verdict={verdict:9} triage[{band}] -> {full.name}")

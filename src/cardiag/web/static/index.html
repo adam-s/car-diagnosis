@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cardiag — diagnose a car fault from its sound</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -98,6 +99,8 @@ svg{display:block;width:100%;overflow:visible}
 .wf-axis line,.wf-axis path{stroke:var(--border)}
 .spec-wrap{position:relative;margin-top:6px}
 .spec-wrap canvas{width:100%;height:150px;border-radius:4px;display:block}
+#sal{position:absolute;top:0;left:0;pointer-events:none;opacity:0;transition:opacity .5s ease}
+#sal.on{opacity:1}
 .spec-lab{position:absolute;left:6px;font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.85);
   text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none}
 .spec-hi{top:5px} .spec-lo{bottom:6px}
@@ -181,6 +184,10 @@ svg{display:block;width:100%;overflow:visible}
   transition:background .12s ease}
 .evidence:hover{background:var(--surface-muted)} .evidence b{color:var(--ink)}
 .evidence .locate{color:var(--accent);font-weight:500}
+.why-row{display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap}
+.why-row .btn{font-size:.84rem;padding:9px 16px}
+.why{font-family:var(--font-sans);font-size:.88rem;color:var(--ink-muted);line-height:1.45;flex:1;min-width:240px}
+.why b{color:var(--ink)} .why .pwo{font-family:var(--font-mono);color:var(--accent)}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border-strong);
   border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -235,8 +242,9 @@ svg{display:block;width:100%;overflow:visible}
         <svg id="wf" height="120"></svg>
         <div class="spec-wrap" id="spec-wrap" style="display:none">
           <canvas id="spec"></canvas>
+          <canvas id="sal"></canvas>
           <span class="spec-lab spec-hi">24 kHz</span><span class="spec-lab spec-lo">0</span>
-          <span class="spec-cap">log-mel spectrogram · time-aligned</span>
+          <span class="spec-cap" id="spec-cap">log-mel spectrogram · time-aligned</span>
         </div>
         <div class="playhead" id="head" style="display:none"></div>
         <div class="hoverline" id="hoverline" style="display:none"><span id="hovertime"></span></div>
@@ -279,6 +287,10 @@ svg{display:block;width:100%;overflow:visible}
       <div class="cause">
         <div style="font-family:var(--font-sans);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-subtle);margin:18px 0 4px">Most likely part — ranked shortlist</div>
         <div id="causes"></div>
+      </div>
+      <div class="why-row">
+        <button class="btn ghost" id="explain" style="display:none">✦ Explain this verdict</button>
+        <span class="why" id="why"></span>
       </div>
       <div class="note" id="note"></div>
     </div>
@@ -452,6 +464,7 @@ function showDiag(d){
       `<span class="locate">↦ hover to locate</span>`;
     ev.onmouseenter=()=>brush("regions"); ev.onmouseleave=unbrush;
   } else ev.style.display="none";
+  $("#explain").style.display = audioRef() ? "inline-flex" : "none";   // can re-run -> can explain
   let note=d.note||"";
   if(d.music_prob>=.5)note="⚠ This clip looks like mostly music — treat the result with caution. "+note;
   $("#note").innerHTML=note+" <em>Probabilities are temperature-calibrated, so a weak head reads "+
@@ -480,6 +493,8 @@ async function run(form){
   $("#viz-card").style.display="none"; $("#spec-wrap").style.display="none";
   $("#go").disabled=true; $("#go").innerHTML='<span class="spin"></span>';
   Q=[]; playing=false; streamDone=false; WF.uid=0;
+  $("#sal").classList.remove("on"); $("#why").textContent=""; $("#explain").style.display="none";
+  $("#spec-cap").textContent="log-mel spectrogram · time-aligned";
   try{ player.pause(); }catch(e){} setupAudio(AUDIO.pending);
   buildRail(); railState("acquire","active");
   let resp;
@@ -597,6 +612,66 @@ $("#panel").addEventListener("mousemove",e=>{
   $("#hovertime").textContent=fmt(t);
 });
 $("#panel").addEventListener("mouseleave",()=>{ $("#hoverline").style.display="none"; });
+
+// ---- "explain why": occlusion-saliency overlay on the spectrogram ----
+function audioRef(){
+  if(AUDIO.file)return {file:AUDIO.file};
+  const m=(player.src||"").match(/\/api\/audio\/([0-9a-f]+)/);
+  return m?{audio_id:m[1]}:null;
+}
+async function explainWhy(){
+  const ref=audioRef(); const btn=$("#explain");
+  if(!ref){ $("#why").textContent="audio unavailable — re-run the clip to explain it."; return; }
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span> analyzing evidence…';
+  let res;
+  try{
+    const fd=new FormData();
+    if(ref.file)fd.append("file",ref.file); else fd.append("audio_id",ref.audio_id);
+    res=await (await fetch("/api/explain",{method:"POST",body:fd})).json();
+  }catch(e){ res=null; }
+  btn.disabled=false; btn.innerHTML="✦ Explain this verdict";
+  if(!res||res.available===false){ $("#why").textContent=(res&&res.reason)||"could not explain this clip."; return; }
+  renderSaliency(res);
+}
+function renderSaliency(res){
+  const cv=$("#sal"), spec=$("#spec"), dpr=devicePixelRatio||1;
+  const W=spec.clientWidth||1, H=150;
+  cv.style.width=W+"px"; cv.style.height=H+"px"; cv.width=W*dpr; cv.height=H*dpr;
+  const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  const T=res.n_time, F=res.n_freq, map=res.map;
+  let mx=1e-9, bi=0, bj=0, bv=-1;
+  for(let i=0;i<T;i++)for(let j=0;j<F;j++){ const v=map[i][j]; mx=Math.max(mx,v); if(v>bv){bv=v;bi=i;bj=j;} }
+  const cw=W/T, ch=H/F;
+  for(let ti=0;ti<T;ti++)for(let fi=0;fi<F;fi++){
+    const v=Math.max(0,map[ti][fi])/mx; if(v<=0.04)continue;
+    ctx.fillStyle=`rgba(74,140,226,${(v*0.55).toFixed(3)})`;     // spotlight the evidence
+    ctx.fillRect(ti*cw,(F-1-fi)*ch,Math.ceil(cw),Math.ceil(ch));
+  }
+  ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+  ctx.strokeRect(bi*cw+1,(F-1-bj)*ch+1,cw-2,ch-2);              // outline the strongest tile
+  cv.classList.add("on");
+  drawTimeCurve(res.time_importance);
+  const t=res.top, strong=Math.abs(t.delta)>=0.06;
+  $("#why").innerHTML = strong
+    ? `The <b>${res.verdict.toUpperCase()}</b> verdict leans most on <b>${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s</b>, `+
+      `<b>${(t.f0/1000).toFixed(1)}–${(t.f1/1000).toFixed(1)} kHz</b> — masking it moves fault probability to `+
+      `<span class="pwo">${t.p_without.toFixed(2)}</span> (from ${res.base_p.toFixed(2)}).`
+    : `<b>Robustly confident</b> (fault p ${res.base_p.toFixed(2)}) — no single region is critical; the evidence is `+
+      `spread across the clip (strongest: ${t.t0.toFixed(1)}–${t.t1.toFixed(1)}s, ${(t.f0/1000).toFixed(1)}–${(t.f1/1000).toFixed(1)} kHz).`;
+  $("#spec-cap").textContent="occlusion saliency · brighter = more evidence for the verdict";
+}
+function drawTimeCurve(ti){
+  if(!WF.svg||!ti||!ti.length)return;
+  WF.svg.selectAll(".sal-curve").remove();
+  let mx=1e-9; ti.forEach(v=>mx=Math.max(mx,Math.abs(v)));
+  const n=ti.length, W=WF.x(DUR);
+  const pts=ti.map((v,i)=>[(i+0.5)/n*W, WF.m.t+(1-Math.max(0,v)/mx)*20]);
+  const line=d3.line().x(d=>d[0]).y(d=>d[1]).curve(d3.curveMonotoneX);
+  WF.svg.append("path").attr("class","sal-curve").attr("d",line(pts)).attr("fill","none")
+    .attr("stroke","var(--viz-accent)").attr("stroke-width",1.5).attr("stroke-dasharray","2 2")
+    .attr("opacity",0).transition().duration(500).attr("opacity",.85);
+}
+$("#explain").onclick=explainWhy;
 
 $("#go").onclick=()=>{
   const u=$("#url").value.trim(), f=$("#file").files[0]; const fd=new FormData();

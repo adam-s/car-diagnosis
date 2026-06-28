@@ -45,6 +45,11 @@ def index() -> FileResponse:
     return FileResponse(_STATIC / "index.html")
 
 
+@app.get("/favicon.svg")
+def favicon() -> FileResponse:
+    return FileResponse(_STATIC / "favicon.svg")
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model_loaded": _classifier() is not None}
@@ -153,6 +158,51 @@ async def diagnose_stream(file: UploadFile | None = File(None),
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
+
+
+@app.post("/api/explain")
+async def explain_why(file: UploadFile | None = File(None),
+                      audio_id: str | None = Form(None)) -> JSONResponse:
+    """Occlusion-saliency explanation of the fault/normal verdict — *why* the model
+    decided. Accepts the same clip back (an upload, or a cached ``audio_id`` from a
+    pasted-link run) and returns a time×frequency importance map. Heavy (re-embeds
+    a grid of masked variants), so it's a deliberate opt-in, serialized by _LOCK."""
+    from starlette.concurrency import run_in_threadpool
+
+    from cardiag.audio import saliency
+
+    tmp = None
+    try:
+        if audio_id:
+            if not (all(c in "0123456789abcdef" for c in audio_id) and len(audio_id) <= 32):
+                return JSONResponse({"error": "bad id"}, status_code=400)
+            hits = list(_AUDIO_DIR.glob(f"{audio_id}.*"))
+            if not hits:
+                return JSONResponse({"error": "audio expired — re-run the clip"}, status_code=404)
+            path = str(hits[0])
+        elif file is not None:
+            with tempfile.NamedTemporaryFile(suffix=_safe_suffix(file.filename),
+                                             delete=False) as fh:
+                tmp = fh.name
+                total = 0
+                while chunk := await file.read(1 << 20):
+                    total += len(chunk)
+                    if total > MAX_BYTES:
+                        return JSONResponse({"error": "file too large"}, status_code=413)
+                    fh.write(chunk)
+            path = tmp
+        else:
+            return JSONResponse({"error": "provide a file or audio_id"}, status_code=400)
+
+        model = os.environ.get("CARDIAG_MODEL")
+        with _LOCK:
+            res = await run_in_threadpool(saliency.occlusion_saliency, path, model)
+        return JSONResponse(res)
+    except (ValueError, FileNotFoundError, OSError) as e:
+        return JSONResponse({"error": f"could not explain: {e}"}, status_code=400)
+    finally:
+        if tmp and os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 @app.post("/diagnose")

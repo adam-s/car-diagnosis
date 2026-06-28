@@ -141,11 +141,11 @@ self-confidence.
 
 ```mermaid
 flowchart TD
-    CORPUS[(tiered corpus.jsonl)] --> PREP[prepare.py<br/>leakage-safe splits<br/>grouped by creator/video]
-    PREP --> CAUSES[causes.py<br/>359 raw -> ~24 part families]
+    CORPUS[(tiered corpus.jsonl)] --> PREP[pipeline/build.py<br/>leakage-safe splits<br/>grouped by video]
+    PREP --> CAUSES[training/prep/causes.py<br/>raw titles -> ~12 part families]
     CAUSES --> EMBED[embed.py<br/>frozen CLAP 512-d -> .npz]
-    EMBED --> TRAIN[train_best.py<br/>LogReg + StandardScaler heads:<br/>kind / knock / cause]
-    TRAIN --> CALIB[confidence.py<br/>isotonic calibration<br/>HIGH/MED/LOW/ABSTAIN]
+    EMBED --> TRAIN[pipeline/build.py<br/>LogReg + StandardScaler heads:<br/>kind / knock / cause]
+    TRAIN --> CALIB[temperature scaling (Guo 2017)<br/>HIGH/MED/LOW/ABSTAIN]
     CALIB --> EVAL[eval/*<br/>creator-grouped CV<br/>coverage @ precision, ECE]
     CALIB --> MODEL[(best_model_clap.joblib)]
 ```
@@ -157,7 +157,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph Frontends
-        CLI["CLI<br/>app/cli.py audio.wav"]
+        CLI["CLI<br/>cardiag diagnose audio.wav"]
         WEB["Local web<br/>app/web.py (FastAPI)<br/>upload .wav"]
     end
 
@@ -196,7 +196,7 @@ sequenceDiagram
     Note over CL: energy → VAD → flatness → music<br/>strip voice / music / silence
     CL-->>W: clean mechanical segment(s)
     W->>P: predict(segment)
-    Note over P: CLAP embed → kind/knock/cause heads<br/>→ isotonic calibration
+    Note over P: CLAP embed → kind/knock/cause heads<br/>→ temperature-calibrated
     P-->>W: { verdict, fault_probability,<br/>top_causes[], confidence band }
     W-->>U: result card (honest band, ranked causes)
 ```

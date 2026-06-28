@@ -77,7 +77,8 @@ path = "src/cardiag/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cardiag"]
-artifacts = ["src/cardiag/_fixtures/*.npz", "src/cardiag/web/static/*"]
+artifacts = ["src/cardiag/_fixtures/*.npz", "src/cardiag/_fixtures/*.wav",
+             "src/cardiag/web/static/*"]
 
 [tool.ruff]
 line-length = 100

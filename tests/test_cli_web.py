@@ -132,3 +132,20 @@ def test_explain_endpoint_validates_input(client):
     # no input -> 400; a non-hex audio_id -> 400 (no path traversal); both CLAP-free
     assert client.post("/api/explain", data={}).status_code == 400
     assert client.post("/api/explain", data={"audio_id": "../x"}).status_code == 400
+
+
+def test_url_fetch_ssrf_guard():
+    # the link-fetch feature must refuse non-media / internal / non-http URLs BEFORE
+    # yt-dlp ever runs (regression guard for the SSRF fix)
+    from cardiag.web import explain
+    for bad in ("http://169.254.169.254/latest/meta-data/",   # cloud metadata
+                "file:///etc/passwd", "http://localhost:6379/",
+                "https://evil.example.com/x", "ftp://x/y", "not a url"):
+        with pytest.raises(ValueError):
+            explain._validate_url(bad)
+
+
+def test_demo_clip_is_bundled():
+    # a fresh clone must have something to diagnose offline
+    from cardiag import paths
+    assert paths.DEMO_CLIP.exists() and paths.DEMO_CLIP.stat().st_size > 1000

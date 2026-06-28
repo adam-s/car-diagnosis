@@ -290,16 +290,28 @@ def start():
         c.print("[yellow]Fix the ✗ items above, then run [bold]cardiag start[/bold] "
                 "again.[/yellow]")
         raise typer.Exit(1)
-    c.print("[bold]2/2[/bold]  a model to diagnose with")
-    if paths.MODEL_CLAP.exists():
-        c.print(f"  [green]✓[/green] you already have a model at {paths.MODEL_CLAP}")
+    c.print("[bold]2/3[/bold]  a model to diagnose with")
+    if paths.resolve_clap().exists():
+        where = ("your trained model" if paths.MODEL_CLAP.exists()
+                 else "the shipped pre-trained model")
+        c.print(f"  [green]✓[/green] using {where}")
     else:
         c.print("  training a quick model from bundled fixtures (offline, ~2s)…")
         build.train_from_fixtures()
+
+    c.print("[bold]3/3[/bold]  diagnosing the bundled demo clip (a synthetic engine knock)")
+    try:
+        from cardiag import Classifier
+        d = Classifier.load().diagnose(str(paths.DEMO_CLIP)).to_dict()
+        c.print(f"  [green]✓[/green] verdict [bold]{d['verdict']}[/bold] · "
+                f"engine-knock p={d['engine_knock_probability']:.2f} — the loop works end to end.")
+    except Exception as e:
+        c.print(f"  [yellow]could not run the demo clip ({type(e).__name__})[/yellow]")
+
     c.print("\n[green]You're ready.[/green] Try, in order:")
-    c.print("  [bold]cardiag diagnose <clip.wav>[/bold]   diagnose a recording")
-    c.print("  [bold]cardiag inspect  <clip.wav>[/bold]   see + hear what it did")
-    c.print("  [bold]cardiag demo[/bold]                  the whole loop, scraping for real\n")
+    c.print(f"  [bold]cardiag diagnose {paths.DEMO_CLIP.name}[/bold]   (or any clip of your own)")
+    c.print("  [bold]cardiag serve --model models[/bold]   the live web app — paste a link or drop a clip")
+    c.print("  [bold]cardiag demo[/bold]                   the whole loop, scraping for real\n")
 
 
 @app.command()

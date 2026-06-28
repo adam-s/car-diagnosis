@@ -1,0 +1,168 @@
+"""Visual-review harness for the streaming UI — renders the page across a set of
+representative clips and saves screenshots so the look of the data visualization
+can be judged (and iterated on) qualitatively, not just asserted to "work".
+
+It builds inputs that exercise the interesting viz states — a narrated clip (so
+the speech-removal overlay fires), real fault/normal clips (real spectrograms +
+calibrated verdicts), and a near-silent clip (the empty state) — starts the
+server with the shipped model, drives it in a headless browser, and writes a
+full-page screenshot per clip plus close-ups of the waveform and spectrogram.
+
+    python scripts/ui_review.py --out /tmp/ui_review            # uses models/ + data/ clips
+
+Requires the [web] + [dev] extras (fastapi, uvicorn, playwright) and, for the
+narrated clip, macOS `say` (optional; skipped if absent).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+import soundfile as sf
+
+ROOT = Path(__file__).resolve().parents[1]
+SR = 48000
+
+
+def _free_port() -> int:
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+def _load(path, sr=SR):
+    import librosa
+    y, _ = librosa.load(str(path), sr=sr, mono=True)
+    return y.astype(np.float32)
+
+
+def _real_clip(kind: str, l1_prefix: str) -> Path | None:
+    for src in ("youtube", "tiktok", "reddit"):
+        f = ROOT / "data" / src / "corpus.jsonl"
+        if not f.exists():
+            continue
+        for ln in open(f):
+            r = json.loads(ln)
+            if (r.get("kind") == kind and (r.get("l1") or "").startswith(l1_prefix)
+                    and os.path.exists(r.get("wav", ""))):
+                return Path(r["wav"])
+    return None
+
+
+def build_clips(outdir: Path) -> list[tuple[str, Path]]:
+    """Create the representative inputs. Returns [(label, wav_path), …]."""
+    outdir.mkdir(parents=True, exist_ok=True)
+    clips: list[tuple[str, Path]] = []
+
+    # 1) narrated clip: TTS speech + a real knock -> speech removed (red) + kept (green)
+    knock = _real_clip("fault", "knocking")
+    if knock and shutil.which("say"):
+        aiff = outdir / "_say.aiff"
+        subprocess.run(["say", "-o", str(aiff),
+                        "Here's what a bad engine knock sounds like when it's idling."],
+                       check=False)
+        try:
+            speech = _load(aiff)
+            mech = _load(knock)
+            gap = np.zeros(int(0.3 * SR), np.float32)
+            y = np.concatenate([speech * 0.6, gap, mech])
+            p = outdir / "1_narrated_knock.wav"
+            sf.write(p, y, SR)
+            clips.append(("narrated_knock", p))
+        except Exception as e:
+            print(f"  (narrated clip skipped: {e})")
+
+    # 2-4) real clips: a knock (fault), a normal, a squeal — real spectrograms + verdicts
+    for label, kind, l1 in [("knock_fault", "fault", "knocking"),
+                            ("normal_idle", "normal", "normal smooth"),
+                            ("squeal_fault", "fault", "squealing")]:
+        c = _real_clip(kind, l1)
+        if c:
+            p = outdir / f"{len(clips)+2}_{label}.wav"
+            sf.write(p, _load(c), SR)
+            clips.append((label, p))
+
+    # 5) near-silent -> the empty-state narration ("no clean span survived")
+    p = outdir / "9_quiet.wav"
+    sf.write(p, (1e-4 * np.random.default_rng(0).standard_normal(SR * 3)).astype(np.float32), SR)
+    clips.append(("quiet_empty", p))
+    return clips
+
+
+def review(clips, base_url: str, outdir: Path) -> None:
+    from playwright.sync_api import sync_playwright
+    shots = []
+    with sync_playwright() as pw:
+        b = pw.chromium.launch()
+        for label, wav in clips:
+            pg = b.new_page(viewport={"width": 1120, "height": 1600}, device_scale_factor=2)
+            pg.goto(base_url, wait_until="networkidle")
+            pg.set_input_files("#file", str(wav))
+            try:
+                pg.wait_for_selector("#diagnosis", state="visible", timeout=60000)
+                pg.wait_for_function(
+                    "document.querySelector('#verdict')&&document.querySelector('#verdict').textContent!=='—'",
+                    timeout=60000)
+            except Exception:
+                pass
+            pg.wait_for_timeout(1500)               # let bars/overlays settle
+            full = outdir / f"review_{label}.png"
+            pg.screenshot(path=str(full), full_page=True)
+            shots.append((label, full))
+            # close-up of the time-aligned audio panel (waveform + spectrogram)
+            el = pg.query_selector("#viz-card")
+            if el and el.is_visible():
+                el.screenshot(path=str(outdir / f"closeup_{label}_audio.png"))
+            verdict = pg.text_content("#verdict") or "?"
+            band = pg.text_content("#band") or ""
+            print(f"  {label:16} verdict={verdict:9} triage[{band}] -> {full.name}")
+            pg.close()
+        b.close()
+    print(f"\n{len(shots)} full-page screenshots in {outdir}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--out", default="/tmp/ui_review")
+    ap.add_argument("--model", default=str(ROOT / "models"))
+    ap.add_argument("--url", default=None, help="review a running server instead of starting one")
+    a = ap.parse_args()
+    outdir = Path(a.out)
+    clips = build_clips(outdir)
+    print(f"built {len(clips)} review clips")
+
+    proc = None
+    url = a.url
+    if not url:
+        port = _free_port()
+        url = f"http://127.0.0.1:{port}"
+        env = {**os.environ, "CARDIAG_MODEL": str(Path(a.model) / "best_model_clap.joblib"),
+               "CARDIAG_TRIAGE": str(Path(a.model) / "triage_model.joblib")}
+        proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "cardiag.web.app:app",
+                                 "--port", str(port), "--log-level", "warning"], env=env)
+        for _ in range(40):
+            try:
+                import urllib.request
+                urllib.request.urlopen(url + "/health", timeout=1)
+                break
+            except Exception:
+                time.sleep(0.5)
+    try:
+        review(clips, url, outdir)
+    finally:
+        if proc:
+            proc.terminate()
+
+
+if __name__ == "__main__":
+    main()

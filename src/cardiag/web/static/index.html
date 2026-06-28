@@ -96,6 +96,13 @@ h1{font-size:2.4rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 svg{display:block;width:100%;overflow:visible}
 .wf-axis text{font-family:var(--font-mono);font-size:10px;fill:var(--ink-subtle)}
 .wf-axis line,.wf-axis path{stroke:var(--border)}
+.spec-wrap{position:relative;margin-top:6px}
+.spec-wrap canvas{width:100%;height:150px;border-radius:4px;display:block}
+.spec-lab{position:absolute;left:6px;font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.85);
+  text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none}
+.spec-hi{top:5px} .spec-lo{bottom:6px}
+.spec-cap{position:absolute;right:8px;bottom:6px;font-family:var(--font-sans);font-size:10px;
+  color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.6)}
 
 .log{position:relative;padding-left:26px}
 .log::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
@@ -172,20 +179,21 @@ svg{display:block;width:100%;overflow:visible}
     <div class="now-playing"><span class="src-badge" id="src">file</span><span id="title"></span></div>
     <div class="rail" id="rail"></div>
 
-    <div class="card" id="wf-card" style="display:none">
+    <div class="card" id="viz-card" style="display:none">
       <h3>Audio timeline — what survives the clean</h3>
-      <svg id="wf" height="170"></svg>
+      <svg id="wf" height="120"></svg>
+      <div class="spec-wrap" id="spec-wrap" style="display:none">
+        <canvas id="spec"></canvas>
+        <span class="spec-lab spec-hi">24 kHz</span><span class="spec-lab spec-lo">0</span>
+        <span class="spec-cap">log-mel spectrogram · time-aligned</span>
+      </div>
+      <svg id="taxis" height="20"></svg>
       <div class="legend">
         <span><i style="background:var(--ink-faded)"></i>raw audio</span>
         <span><i style="background:var(--viz-error)"></i>speech (removed)</span>
         <span><i style="background:var(--viz-music)"></i>music (dropped)</span>
-        <span><i style="background:var(--viz-success)"></i>mechanical span (kept &amp; diagnosed)</span>
+        <span><i style="background:var(--viz-success-ink)"></i>mechanical span (kept &amp; diagnosed)</span>
       </div>
-    </div>
-
-    <div class="card" id="spec-card" style="display:none">
-      <h3>Log-mel spectrogram</h3>
-      <canvas id="spec" style="width:100%;height:180px;border-radius:4px"></canvas>
     </div>
 
     <div class="card">
@@ -245,39 +253,56 @@ function railState(id,state){
   if(state==="done"){n.classList.add("done");n.classList.remove("active");}
 }
 
-const WF={};
+const WF={uid:0};
 function initWF(peaks,duration){
   DUR=duration||1; const svg=d3.select("#wf"); svg.selectAll("*").remove();
-  const W=svg.node().clientWidth||900, H=170, m={t:8,b:22};
+  const W=svg.node().clientWidth||900, H=120, m={t:6,b:6};
+  // auto-gain: scale the envelope so the loudest peak fills the card
+  let amp=0; peaks.forEach(d=>amp=Math.max(amp,Math.abs(d[0]),Math.abs(d[1])));
+  const g=0.97/Math.max(amp,0.04);
   const x=d3.scaleLinear().domain([0,DUR]).range([0,W]);
   const yA=d3.scaleLinear().domain([-1,1]).range([H-m.b,m.t]);
-  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg;
-  WF.overlay=svg.append("g");
-  const area=d3.area().x((d,i)=>x(i/peaks.length*DUR)).y0(d=>yA(Math.max(-1,d[0]))).y1(d=>yA(Math.min(1,d[1])));
-  svg.append("path").attr("d",area(peaks)).attr("fill","var(--ink-faded)").attr("opacity",.85);
+  const area=d3.area().x((d,i)=>x(i/peaks.length*DUR))
+    .y0(d=>yA(Math.max(-1,d[0]*g))).y1(d=>yA(Math.min(1,d[1]*g)));
+  WF.x=x; WF.H=H; WF.m=m; WF.svg=svg; WF.area=area; WF.peaks=peaks;
+  WF.wash=svg.append("g");                                  // removed-span washes (behind)
+  svg.append("path").attr("d",area(peaks)).attr("fill","var(--ink-faded)").attr("opacity",.5); // faint base = "raw"
+  WF.emph=svg.append("g");                                  // kept spans, redrawn solid (in front)
   WF.scan=svg.append("line").attr("y1",m.t).attr("y2",H-m.b).attr("stroke","var(--viz-accent)")
     .attr("stroke-width",1.5).attr("opacity",0);
-  svg.append("g").attr("class","wf-axis").attr("transform",`translate(0,${H-m.b})`)
-    .call(d3.axisBottom(x).ticks(6).tickFormat(d=>d+"s"));
+  // shared time axis lives in #taxis so the spectrogram aligns under the waveform
+  const ax=d3.select("#taxis"); ax.selectAll("*").remove();
+  ax.append("g").attr("class","wf-axis").call(d3.axisBottom(x).ticks(7).tickSize(4).tickFormat(d=>d+"s"));
 }
 function sweep(){ if(!WF.scan)return;
   WF.scan.attr("opacity",.8).attr("x1",0).attr("x2",0).transition().duration(1500).ease(d3.easeQuadInOut)
     .attr("x1",WF.x(DUR)).attr("x2",WF.x(DUR)).on("end",()=>WF.scan.transition().duration(300).attr("opacity",0));
 }
-function drawSpans(cls,spans,color,op){
-  if(!WF.overlay||!spans)return;
-  const g=WF.overlay.append("g").attr("class",cls);
+// removed audio -> a translucent wash (the faint base shows through = discarded)
+function washSpans(spans,color,op){
+  if(!WF.wash||!spans)return;
+  spans.forEach(([s,e])=>WF.wash.append("rect").attr("x",WF.x(s)).attr("y",WF.m.t)
+    .attr("height",WF.H-WF.m.b-WF.m.t).attr("width",0).attr("fill",color).attr("opacity",0)
+    .transition().duration(420).ease(d3.easeCubicOut)
+    .attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("opacity",op));
+}
+// kept audio -> redraw the waveform slice solid green (the "survives" emphasis)
+function keepSpans(spans){
+  if(!WF.emph||!spans)return;
   spans.forEach(([s,e])=>{
-    g.append("rect").attr("x",WF.x(s)).attr("y",WF.m.t).attr("height",WF.H-WF.m.b-WF.m.t)
-      .attr("width",0).attr("fill",color).attr("opacity",0)
-      .transition().duration(420).ease(d3.easeCubicOut)
-      .attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("opacity",op);
+    const id="k"+(WF.uid++);
+    WF.svg.append("clipPath").attr("id",id).append("rect")
+      .attr("x",WF.x(s)).attr("y",0).attr("width",Math.max(1,WF.x(e)-WF.x(s))).attr("height",WF.H);
+    WF.emph.append("path").attr("d",WF.area(WF.peaks)).attr("clip-path",`url(#${id})`)
+      .attr("fill","var(--viz-success-ink)").attr("opacity",0)
+      .transition().duration(480).ease(d3.easeCubicOut).attr("opacity",.92);
   });
 }
 
 function drawSpec(mel,f,t){
+  $("#spec-wrap").style.display="block";
   const cv=$("#spec"), dpr=devicePixelRatio||1;
-  const W=cv.clientWidth, H=180; cv.width=W*dpr; cv.height=H*dpr;
+  const W=cv.clientWidth||(WF.x?WF.x(DUR):900), H=150; cv.width=W*dpr; cv.height=H*dpr;
   const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
   const cw=W/t, ch=H/f, col=d3.interpolateMagma;
   for(let ti=0;ti<t;ti++)for(let fi=0;fi<f;fi++){
@@ -328,7 +353,7 @@ function showDiag(d){
 async function run(form){
   $("#err").style.display="none"; $("#stage-wrap").style.display="block";
   $("#log").innerHTML=""; $("#diagnosis").style.display="none";
-  $("#wf-card").style.display="none"; $("#spec-card").style.display="none";
+  $("#viz-card").style.display="none"; $("#spec-wrap").style.display="none";
   $("#go").disabled=true; $("#go").innerHTML='<span class="spin"></span>';
   buildRail(); railState("acquire","active");
   let resp;
@@ -353,15 +378,15 @@ function handle(frame){
   if(ev==="error"){ fail(d.message); return; }
   if(ev==="meta"){ railState("acquire","done");
     $("#src").textContent=d.source; $("#title").textContent=d.title||""; return; }
-  if(ev==="waveform"){ $("#wf-card").style.display="block"; initWF(d.peaks,d.duration);
+  if(ev==="waveform"){ $("#viz-card").style.display="block"; initWF(d.peaks,d.duration);
     railState("waveform","done"); railState("energy","active"); sweep(); return; }
-  if(ev==="spectrogram"){ $("#spec-card").style.display="block"; drawSpec(d.mel,d.f,d.t); return; }
+  if(ev==="spectrogram"){ drawSpec(d.mel,d.f,d.t); return; }
   if(ev==="stage"){
     railState(d.id,"active");
-    if(d.id==="vad")drawSpans("sp",d.speech,"var(--viz-error)",.28);
-    if(d.id==="regions")drawSpans("rg",d.regions,"var(--viz-success)",.30);
+    if(d.id==="vad")washSpans(d.speech,"var(--viz-error)",.30);
+    if(d.id==="regions")keepSpans(d.regions);
     if(d.id==="music"&&d.spans){
-      drawSpans("mu",d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]),"var(--viz-music)",.40);
+      washSpans(d.spans.filter(s=>!s.kept).map(s=>[s.s,s.e]),"var(--viz-music)",.42);
     }
     addLog(d.label,d.narration);
     const order=["energy","vad","regions","music","embed"];

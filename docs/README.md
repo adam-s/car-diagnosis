@@ -14,12 +14,22 @@ classify**. No parts pricing, no browser extension, no chat agent.
 1. **[00-source-projects.md](00-source-projects.md)** — what the two parent projects
    (`detect-mech-issues`, `detect-study`) are, and what this project takes from each.
 2. **[01-what-we-have.md](01-what-we-have.md)** — the parts list: every stage that
-   already exists, the exact library/model it uses, and where to lift it from.
+   already exists, the exact library/model it uses, and where it lives in the package.
 3. **[02-scraping-with-camoufox.md](02-scraping-with-camoufox.md)** — start-to-finish
    scraping of YouTube, TikTok, and Reddit, with Camoufox as the stealth-browser
    foundation.
 4. **[03-architecture-diagrams.md](03-architecture-diagrams.md)** — Mermaid diagrams
    of the full pipeline, scrapers, cleaning cascade, training, and inference.
+5. **[PROOFS.md](PROOFS.md)** — the honest verification log: the 34-test pyramid plus
+   the live runs (real M3 inference, a 270-clip showcase, Ollama + Sonnet labeling,
+   live YouTube/Reddit scraping) and a frank account of what is *not* provable.
+6. **[research/](research/)** — the original research notes (`STATUS.md` and others)
+   that established the honest ceilings the product is built around.
+
+> These four planning docs (00–03) were written before the package was built and
+> describe the design; the package now exists under [`src/cardiag/`](../src/cardiag)
+> and the [top-level README](../README.md) is the entry point. `PROOFS.md` records
+> what was actually verified.
 
 ## The honest one-paragraph summary
 

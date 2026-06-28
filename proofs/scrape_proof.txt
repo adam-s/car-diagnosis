@@ -1,0 +1,22 @@
+### cardiag scrape-transport proof — 2026-06-28 12:15
+### proves the live discovery transports (no bulk download)
+
+=== YouTube: yt-dlp ytsearch5 'bad wheel bearing sound while driving' ===
+   nl7cU2wHBXg	BAD WHEEL BEARING SOUNDS! Simple-Fast-Professional-DIAGNOSIS
+   YvKWGjmPKoc	How to Check a Wheel Bearing (Sound, play in the wheel, ABS 
+   IOe-feOHM-E	Bad wheel bearing noise
+   _Hk8HFUFGKI	How to tell the difference between a wheel bearing noise and
+   vJYDGWEwhEk	How to 100% diagnose a bad wheel bearing.
+  -> 5 videos discovered in 3.1s
+
+=== Reddit: live old.reddit parse via cardiag.ingest.reddit.scrape.list_page ===
+  parsed 25 posts, 6 with video, next_after=t3_1uh56u3
+   - v.redd.it      https://old.reddit.com/r/MechanicAdvice/comments/1uhyjuf/title_idle_rp
+   - v.redd.it      https://old.reddit.com/r/MechanicAdvice/comments/1uhhuv3/smoking_engin
+   - v.redd.it      https://old.reddit.com/r/MechanicAdvice/comments/1uhxp3p/something_und
+  -> live parse OK in 1.5s
+
+### NOTE: TikTok discovery uses a stealth browser (patchright) + the same
+### pattern; not run here (needs a browser + anti-bot). Code: cardiag.ingest.tiktok.discover
+
+### PROOF_DONE

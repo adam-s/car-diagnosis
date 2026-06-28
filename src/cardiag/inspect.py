@@ -171,6 +171,65 @@ def report(files, out_path="report.html", with_clap: bool = True) -> Path:
     return out
 
 
+def gallery(rows=None, out_path="gallery.html", limit: int = 120) -> Path:
+    """A compact, audio-playable grid of the scraped corpus grouped by sound-type,
+    so you can listen to clips and judge the labels yourself."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+    except ImportError as e:
+        raise SystemExit(f"gallery needs matplotlib: pip install -e '.[viz]'  ({e})")
+    import librosa
+
+    from cardiag import config
+    if rows is None:
+        from cardiag.pipeline import build
+        rows = build.load_corpus()
+    if not rows:
+        raise SystemExit("empty corpus — run a scrape first (cardiag scrape …).")
+    rows = rows[:limit]
+
+    groups: dict[str, list] = {}
+    for r in rows:
+        groups.setdefault(r.get("l1", "?"), []).append(r)
+
+    sections = []
+    for l1 in sorted(groups):
+        cards = []
+        for r in groups[l1]:
+            y, sr = librosa.load(r["wav"], sr=config.SR_CLAP, mono=True)
+            cause = ", ".join(r.get("l2_candidates", [])) or "—"
+            cards.append(
+                f'<div class="gc"><img src="{_melspec_png(y, sr, "")}">'
+                f'<div class="gl"><b>{r.get("kind","")}</b> · {cause}</div>'
+                f'<audio controls src="{_b64_wav(y, sr)}"></audio></div>')
+        sections.append(f'<h2>{l1} <span class="cnt">{len(groups[l1])}</span></h2>'
+                        f'<div class="grid">{"".join(cards)}</div>')
+    html = _GALLERY.replace("{{SECTIONS}}", "".join(sections)).replace(
+        "{{N}}", str(len(rows)))
+    out = Path(out_path)
+    out.write_text(html)
+    print(f"wrote gallery of {len(rows)} clips ({len(groups)} sound-types) "
+          f"-> {out.resolve()}")
+    return out
+
+
+_GALLERY = """<!doctype html><html><head><meta charset="utf-8">
+<title>cardiag — corpus gallery</title><style>
+ body{background:#0d1117;color:#e6edf3;font:14px system-ui,sans-serif;margin:0;padding:24px}
+ h1{font-size:22px} h2{font-size:15px;color:#58a6ff;margin:22px 0 8px;border-bottom:1px solid #30363d;padding-bottom:4px}
+ .cnt{color:#8b949e;font-weight:400} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+ .gc{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px}
+ .gc img{width:100%;border-radius:4px;background:#fff} .gl{font-size:12px;color:#8b949e;margin:4px 0}
+ audio{width:100%;height:30px}
+</style></head><body>
+ <h1>cardiag — corpus gallery ({{N}} clips)</h1>
+ <p style="color:#8b949e">Clips grouped by CLAP sound-type. Each shows its kind + cause-from-text labels.
+ Play them and judge the labels yourself.</p>
+ {{SECTIONS}}
+</body></html>"""
+
+
 _PAGE = """<!doctype html><html><head><meta charset="utf-8">
 <title>cardiag — pipeline inspection</title><style>
  body{background:#0d1117;color:#e6edf3;font:14px system-ui,sans-serif;margin:0;padding:24px}

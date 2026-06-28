@@ -29,6 +29,21 @@ def test_train_from_fixtures_offline(monkeypatch, tmp_path):
     importlib.reload(p)
 
 
+def test_gallery_offline(tone_wav, tmp_path):
+    """gallery renders grouped audio cards from corpus rows (no CLAP)."""
+    pytest.importorskip("matplotlib")
+    from cardiag import inspect as inspect_mod
+    rows = [{"wav": tone_wav, "l1": "grinding noise", "kind": "fault",
+             "l2_candidates": ["brakes"]},
+            {"wav": tone_wav, "l1": "normal smooth engine idle", "kind": "normal",
+             "l2_candidates": []}]
+    out = tmp_path / "g.html"
+    inspect_mod.gallery(rows=rows, out_path=str(out))
+    html = out.read_text()
+    assert "corpus gallery" in html and "grinding noise" in html
+    assert "data:audio/wav;base64," in html
+
+
 def test_inspect_report_offline(tone_wav, tmp_path):
     """inspect renders a self-contained HTML (no_clap path = no CLAP needed)."""
     pytest.importorskip("matplotlib")

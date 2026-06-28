@@ -119,6 +119,17 @@ def inspect(
 
 
 @app.command()
+def gallery(
+    out: str = typer.Option("gallery.html", "-o", "--out"),
+    limit: int = typer.Option(120, help="Max clips to include."),
+):
+    """Render an audio-playable grid of the scraped corpus grouped by sound-type,
+    so you can listen to clips and judge the labels yourself."""
+    from cardiag import inspect as inspect_mod
+    inspect_mod.gallery(out_path=out, limit=limit)
+
+
+@app.command()
 def serve(
     host: str = typer.Option("127.0.0.1"),
     port: int = typer.Option(8000),

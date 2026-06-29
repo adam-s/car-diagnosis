@@ -275,19 +275,23 @@ svg{display:block;width:100%;overflow:visible}
         </div>
       </div>
       <div class="evidence" id="evidence" style="display:none"></div>
-      <div class="grid2">
-        <div class="metric">
-          <div class="k">Engine knock</div><div class="v" id="knock">—</div>
-          <div style="font-family:var(--font-sans);font-size:.78rem;color:var(--ink-subtle)">probability of a metallic knock</div>
-        </div>
-        <div class="metric">
-          <div class="k">Triage — where is it from?</div><div class="v" id="triage">—</div>
-          <span class="band" id="band"></span>
-        </div>
+      <div class="cause" id="regionblock" style="display:none">
+        <div style="font-family:var(--font-sans);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-subtle);margin:18px 0 4px">Where in the car — ranked <span style="text-transform:none;letter-spacing:0;color:var(--ink-faded)">· right zone in top-3 ≈75% out-of-sample</span></div>
+        <div id="regions"></div>
       </div>
       <div class="cause">
         <div style="font-family:var(--font-sans);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-subtle);margin:18px 0 4px">Most likely part — ranked shortlist</div>
         <div id="causes"></div>
+      </div>
+      <div class="grid2">
+        <div class="metric">
+          <div class="k">Triage — engine vs running-gear</div><div class="v" id="triage">—</div>
+          <span class="band" id="band"></span>
+        </div>
+        <div class="metric">
+          <div class="k">Engine knock <span style="text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--ink-faded)">· in-distribution only</span></div><div class="v" id="knock">—</div>
+          <div style="font-family:var(--font-sans);font-size:.78rem;color:var(--ink-subtle)">did not generalize out-of-sample — treat as a hint, not a verdict</div>
+        </div>
       </div>
       <div class="why-row">
         <button class="btn ghost" id="explain" style="display:none">✦ Explain this verdict</button>
@@ -453,6 +457,17 @@ function showDiag(d){
     const b=$("#band"); b.textContent=(d.triage.band||"")+" · "+((d.triage.confidence||0)*100).toFixed(0)+"%";
     b.className="band "+(d.triage.band||"ABSTAIN");
   }else{$("#triage").textContent="—"; $("#band").textContent="";}
+  // where in the car — the headline localization (ranked zones)
+  const rb=$("#regions"); rb.innerHTML="";
+  const regs=d.regions||[];
+  $("#regionblock").style.display=regs.length?"block":"none";
+  regs.forEach(r=>{
+    const row=document.createElement("div"); row.className="row";
+    row.innerHTML=`<span class="nm">${r.zone.replace(/_/g," ")}</span>`+
+      `<span class="bar"><i></i></span><span class="pc">${(r.p*100).toFixed(0)}%</span>`;
+    rb.appendChild(row);
+    requestAnimationFrame(()=>row.querySelector("i").style.width=Math.max(3,r.p*100)+"%");
+  });
   const cc=$("#causes"); cc.innerHTML="";
   (d.causes||[]).forEach(c=>{
     const row=document.createElement("div"); row.className="row";

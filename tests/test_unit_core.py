@@ -20,11 +20,12 @@ def test_diagnosis_to_dict_schema():
         segments=[Segment(0.0, 2.0)],
     )
     out = d.to_dict()
-    assert set(out) == {"file", "verdict", "fault_probability",
+    assert set(out) == {"file", "verdict", "fault_probability", "regions",
                         "engine_knock_probability", "causes", "segments", "note"}
     assert out["verdict"] == "fault"
     assert out["fault_probability"] == 0.812          # rounded to 3
     assert out["causes"][0] == {"part": "brakes", "p": 0.34, "note": "note"}
+    assert out["regions"] == []                       # none supplied -> empty list
 
 
 def test_triage_result_dict():

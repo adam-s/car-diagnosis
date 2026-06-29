@@ -22,7 +22,7 @@ def test_train_from_fixtures_offline(monkeypatch, tmp_path):
     report = build.train_from_fixtures(min_class=2)
     assert "kind" in report and "cause" in report and "triage" in report
     art = joblib.load(p.MODEL_CLAP)
-    assert set(art["heads"]) == {"kind", "knock", "cause"}
+    assert {"kind", "knock", "cause", "region"} <= set(art["heads"])
     assert "fault" in art["heads"]["kind"].classes_
     triage = joblib.load(p.MODEL_TRIAGE)
     assert set(triage["classes"]) <= {"engine", "chassis"}

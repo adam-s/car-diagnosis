@@ -57,13 +57,18 @@ def _print_diagnosis(d) -> None:
     color = {"fault": "red", "normal": "green", "uncertain": "yellow"}[d.verdict.value]
     c.print(f"  Verdict: [bold {color}]{d.verdict.value.upper()}[/bold {color}]  "
             f"(fault p={d.fault_probability:.2f})")
-    if d.engine_knock_probability >= 0.5:
-        c.print(f"  [bold red]⚠ ENGINE KNOCK likely "
-                f"(p={d.engine_knock_probability:.2f})[/bold red] — check oil")
-    c.print("  Most likely cause (audio is suggestive, not definitive):")
+    if d.regions:
+        c.print("  Where in the car (right zone in top-3 ≈75% out-of-sample):")
+        for r in d.regions:
+            bar = "█" * int(r.p * 20)
+            c.print(f"    {r.p:4.0%} [green]{bar:<20}[/green] {r.zone}")
+    c.print("  Most likely part — ranked shortlist (suggestive, not definitive):")
     for cause in d.causes:
         bar = "█" * int(cause.p * 20)
         c.print(f"    {cause.p:4.0%} [cyan]{bar:<20}[/cyan] {cause.part:14} {cause.note}")
+    if d.engine_knock_probability >= 0.5:
+        c.print(f"  [yellow]engine-knock hint p={d.engine_knock_probability:.2f}[/yellow] "
+                f"[dim](in-distribution only — did not generalize out-of-sample)[/dim]")
     if d.segments:
         kept = sum(s.duration for s in d.segments)
         c.print(f"  Isolated {len(d.segments)} mechanical span(s), {kept:.1f}s total.")
@@ -224,10 +229,10 @@ def _missing(what: str, extra: str) -> int:
 
 @app.command()
 def scrape(
-    platform: str = typer.Argument("youtube", help="youtube | tiktok | reddit"),
+    platform: str = typer.Argument("youtube", help="youtube | tiktok"),
     per_query: int = typer.Option(3, min=1, help="(youtube) videos per search query."),
     max_videos: int = typer.Option(40, min=1, help="(youtube/tiktok) cap on videos."),
-    pages: int = typer.Option(2, min=1, help="(reddit) pages per feed."),
+    pages: int = typer.Option(2, min=1, help="(reddit, deprecated) pages per feed."),
     normal: bool = typer.Option(
         False, "--normal",
         help="(tiktok) scrape HEALTHY-engine clips labeled 'normal' instead of "
@@ -236,23 +241,55 @@ def scrape(
 ):
     """Discover, download, and clean sound clips into a labeled corpus.
 
-    All three sources funnel through one cleaning + CLAP-labeling path and write
+    YouTube and TikTok funnel through one cleaning + CLAP-labeling path and write
     data/<platform>/corpus.jsonl ready for `cardiag train` (no LLM, no external
-    data). YouTube runs both fault and normal queries; Reddit adds fault clips;
-    TikTok adds fault clips by default, or normal clips with --normal. TikTok needs
-    the stealth browser (`python -m camoufox fetch`).
+    data). YouTube runs both fault and normal queries; TikTok adds fault clips by
+    default, or normal clips with --normal. TikTok needs the stealth browser
+    (`python -m camoufox fetch`).
+
+    Reddit is DEPRECATED as a training source: posts are long, uncurated, and
+    off-target, which adds label noise without improving accuracy. The real-world
+    input is a *targeted* clip (a user recording the symptom), so we train on the
+    cleaner YouTube/TikTok signal and let the cleaning cascade handle messy input
+    at inference time.
     """
     from cardiag.pipeline import build
     if platform == "youtube":
         build.scrape_youtube(per_query=per_query, max_videos=max_videos)
     elif platform == "reddit":
+        from rich.console import Console
+        Console(stderr=True).print(
+            "[yellow]reddit is deprecated as a training source (uncurated/noisy — "
+            "it adds label noise without helping). Use youtube/tiktok. Proceeding "
+            "anyway since you asked explicitly…[/yellow]")
         build.scrape_reddit(pages=pages, max_posts=max_videos)
     elif platform == "tiktok":
         build.scrape_tiktok(max_videos=max_videos, kind="normal" if normal else "fault")
     else:
-        raise typer.BadParameter("platform must be youtube, tiktok, or reddit")
+        raise typer.BadParameter("platform must be youtube or tiktok "
+                                 "(reddit is deprecated)")
     _nudge("audit what you collected:  cardiag gallery -o gallery.html",
            "scrape the other sources too, then:  cardiag train")
+
+
+@app.command()
+def ingest(
+    audio_dir: str = typer.Argument(..., help="Folder of audio files (any length)."),
+    kind: str = typer.Option(..., help="fault | normal — the label for these clips."),
+    cause: str | None = typer.Option(None, help="Part/fault family, e.g. wheel_bearing."),
+    source: str = typer.Option("local", help="Corpus bucket name (data/<source>/)."),
+):
+    """Bring your own audio. Segment a folder of recordings (ANY length) through the
+    SAME cascade as scraping — long recordings become multiple short mechanical
+    spans — and add them to the corpus, ready for `cardiag train`. One coherent
+    path: your clips are processed identically to scraped clips and to inference."""
+    if kind not in ("fault", "normal"):
+        raise typer.BadParameter("kind must be 'fault' or 'normal'")
+    from cardiag.pipeline import build
+    with _friendly_errors():
+        build.ingest_dir(audio_dir, kind=kind, cause=cause, source=source)
+    _nudge("see what was isolated:  cardiag gallery -o gallery.html",
+           "train on it:  cardiag train")
 
 
 @app.command()

@@ -24,6 +24,9 @@ it, is the point.
 
 ## Results and evaluation
 
+- **[DEFENSE.md](DEFENSE.md)** — the honest case that a *deliberately crude* method
+  (frozen embeddings + linear heads) earns a legitimate triage result, defended with
+  out-of-sample recall@k and lift-over-chance.
 - **[RESULTS.md](RESULTS.md)** — measured, by-video cross-validated numbers from a
   real run, and which improvements actually helped.
 - **[SCORECARD.md](SCORECARD.md)** — the auto-generated scorecard

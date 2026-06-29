@@ -19,7 +19,7 @@ import numpy as np
 
 from cardiag import paths
 from cardiag.audio.embed import model_vectors
-from cardiag.types import Cause, Diagnosis, Verdict
+from cardiag.types import Cause, Diagnosis, Region, Verdict
 
 CAUSE_HELP = {
     "brakes": "worn brake pads/rotors — inspect brakes",
@@ -138,14 +138,16 @@ class Classifier:
             notes.append("fault/normal head was trained on a single class — verdict "
                          "is not meaningful (scrape both fault and normal clips).")
 
-        # --- engine knock -----------------------------------------------------
-        knock_classes = set(getattr(self.heads["knock"], "classes_", []))
-        p_knock = 0.0
-        if "knock" in knock_classes:
-            kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
-            p_knock = float(kn.get("knock", 0.0))
+        # --- where in the car (region) — the headline localization, OOS-robust --
+        regions: list[Region] = []
+        region_head = self.heads.get("region")
+        if region_head is not None and _usable(region_head):
+            rp = _proba(region_head, X, self.temps.get("region", 1.0))
+            regions = [Region(zone=z, p=round(float(p), 3))
+                       for z, p in sorted(rp.items(), key=lambda kv: -kv[1])[:3]
+                       if str(z).lower() not in _SENTINELS]
 
-        # --- cause ------------------------------------------------------------
+        # --- cause (finer part shortlist) -------------------------------------
         if _usable(self.heads["cause"]):
             cause = _proba(self.heads["cause"], X, self.temps.get("cause", 1.0))
             topk = sorted(cause.items(), key=lambda kv: -kv[1])[:3]
@@ -154,6 +156,14 @@ class Classifier:
         else:
             causes = []
             notes.append("cause head has too few classes to suggest a part.")
+
+        # --- engine knock (kept, but NOT the headline: it did not generalize on
+        # the out-of-sample verified set — 0.99 in-dist -> 0.56 OOS) ------------
+        knock_classes = set(getattr(self.heads["knock"], "classes_", []))
+        p_knock = 0.0
+        if "knock" in knock_classes:
+            kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
+            p_knock = float(kn.get("knock", 0.0))
 
         if res is not None and getattr(res, "is_music", False):
             notes.append("Recording looks like mostly music — diagnosis is unreliable.")
@@ -167,6 +177,7 @@ class Classifier:
             verdict=verdict,
             fault_probability=p_fault,
             engine_knock_probability=p_knock,
+            regions=regions,
             causes=causes,
             segments=segments,
             note=note,

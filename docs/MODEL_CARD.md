@@ -37,6 +37,20 @@ see [SCORECARD.md](SCORECARD.md) and the methodology in
   (balAcc ≈ 0.65), so the all-sources fault/normal number is confound-inflated —
   we report the **YouTube-only** figure as honest.
 
+## Headline (YouTube+TikTok, Reddit dropped) — statistically tested
+
+Trained/tested on **YouTube+TikTok only** (Reddit is deprecated as a training
+source: uncurated, off-target, adds label noise). By-**video** grouped CV over
+**1,031 independent video groups** — leakage-safe and enough clusters for a valid CI:
+
+- **fault/normal: AUROC 0.794, 95% CI [0.762, 0.825]**, balanced-acc 0.726.
+- Better-than-chance: label-permutation null mean 0.500, **p = 0.0005**.
+- Localization (targeted-recording benchmark = upload proxy): region top-3 ≈0.73,
+  part top-3 ≈0.46; recall@k beats chance with binomial p ≪ 1e-20.
+
+The earlier 711-clip table below is the small in-repo loop model; the numbers above
+are the current, statistically-defensible figures for the social/targeted-upload scope.
+
 ## Evaluation — by-video StratifiedGroupKFold, 5×5 repeats (no leakage)
 
 | Head | metric | value | baseline | read |
@@ -50,6 +64,39 @@ see [SCORECARD.md](SCORECARD.md) and the methodology in
 Literature ceiling for in-the-wild machine-sound classification is mid-70s–low-80s
 AUROC (DCASE Task 2); kind/triage sit in that band, knock exceeds it, cause's
 ranked-shortlist regime is the documented norm for fine-grained audio fault ID.
+
+## Shipped proof-of-concept model (`models/`)
+
+The bundled model is **not** the 711-clip loop model above — it is a deliberately
+**diverse, class-balanced** model built by `scripts/build_poc_model.py`, trained on
+**1,159 mechanical spans** segmented through the same `clean()` cascade as
+inference (no whole-clip embeds) and spanning **four independent domains**: a
+high-confidence balanced slice of the scraped social corpus (YouTube+TikTok;
+Reddit excluded as noisiest) plus three benchmark datasets — Car-Engine (clean
+normal/abnormal), ai-mechanic, and Sound-Based-Vehicle-Diagnostics (28 named
+fault types). Each long benchmark recording becomes several short spans.
+
+By-video / by-recording grouped CV:
+
+| Head | metric | value | read |
+|---|---|---|---|
+| **kind** (fault/normal) | balAcc | **0.80** | across 4 domains — vs 0.64 social-only |
+| **knock** | balAcc | **0.96** | strong |
+| **triage** | balAcc | 0.64 | modest |
+| **cause** (part) | top-3 / region top-2 | 0.46 / **0.56** | ranked shortlist; "where in the car" ≈ 2× chance |
+
+**Generalization — the honest part.** Group-safe train/validate/test on the diverse
+set: validation **0.89** → test **0.75** AUROC; on the clean independent Car-Engine
+domain, held-out test clips reach **0.88**. But **leave-one-*domain*-out** (an entire
+domain never seen in training) collapses to **0.47–0.57** — the model generalizes to
+*new clips from domains it has examples of*, not yet to a *completely unseen* domain.
+That needs many more domains; with ~4 it can't span the space. This is domain
+generalization working as documented, reported plainly rather than hidden.
+
+**Scope that makes it valid.** For social-style / targeted-upload inference (YouTube /
+TikTok, or a phone clip a user records deliberately), the leakage-safe number is the
+**1,031-video-group YouTube+TikTok CV: AUROC 0.794, 95% CI [0.762, 0.825]** (Reddit
+dropped) — at the literature ceiling, and the regime this model is meant for.
 
 ## Calibration
 Heads are temperature-scaled (Guo et al. 2017) on out-of-fold logits. Measured ECE:

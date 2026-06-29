@@ -59,6 +59,22 @@ def test_cli_scrape_rejects_negative_counts():
     assert runner.invoke(app, ["scrape", "youtube", "--max-videos", "-5"]).exit_code == 2
 
 
+def test_cli_ingest_listed_and_validates_kind():
+    # the bring-your-own-audio command exists and rejects a bad --kind before any work
+    assert "ingest" in runner.invoke(app, ["--help"]).stdout
+    bad = runner.invoke(app, ["ingest", "/tmp", "--kind", "broken"])
+    assert bad.exit_code != 0 and "fault" in (bad.stdout + (bad.stderr or ""))
+
+
+def test_ingest_dir_missing_folder_is_clean_error():
+    # ingest on a non-existent folder -> friendly SystemExit, never a traceback
+    import pytest
+
+    from cardiag.pipeline import build
+    with pytest.raises(SystemExit):
+        build.ingest_dir("/no/such/folder", kind="fault")
+
+
 # ------------------------------------------------------------------- web
 @pytest.fixture
 def client():

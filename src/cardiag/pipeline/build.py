@@ -40,6 +40,20 @@ _ENGINE = {"engine_internal", "low_oil", "fuel_ignition", "belt", "accessories",
 _CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "cv_axle", "suspension",
             "differential", "tires", "wheel_tire", "power_steering"}
 
+# canonical cause family -> "where in the car" region (6 zones). This is the
+# headline output: a recording -> a ranked region shortlist. The OOS sanity check
+# (top-3 ~0.75 on the verified set) shows this generalizes where knock does not.
+_REGION = {
+    "engine": {"engine_internal", "rod_knock", "valvetrain", "low_oil",
+               "fuel_ignition", "fuel_pump"},
+    "accessory": {"belt", "alternator", "water_pump", "ac_compressor", "accessories"},
+    "exhaust": {"exhaust", "turbo"},
+    "drivetrain": {"cv_axle", "cv_joint", "differential"},
+    "suspension/steering": {"suspension", "power_steering"},
+    "brakes/wheels": {"brakes", "wheel_bearing", "wheel_tire", "tires"},
+}
+_CAUSE_TO_REGION = {c: z for z, cs in _REGION.items() for c in cs}
+
 
 # ============================================================ unified labeling
 def _progress(seq, desc):
@@ -76,13 +90,17 @@ def _require(tool: str, fix: str) -> None:
         raise SystemExit(f"'{tool}' not found on PATH — {fix}")
 
 
-def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap) -> list[dict]:
-    """Cascade + CLAP-gate one local audio file into labeled clip records.
+def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap,
+                 cause: str | None = None) -> list[dict]:
+    """Segment ONE audio file (any length) into labeled mechanical-span clips.
 
-    This is the YouTube corpus logic, reused for every platform: isolate the
-    non-speech mechanical spans, score them with CLAP (mechanical-confirm,
-    fault-vs-tool, L1 sound-type), keep the survivors, and write clip WAVs. Each
-    record carries an absolute ``wav`` path plus the labels ``train`` consumes.
+    This is the single segmentation path for the whole project: isolate the
+    non-speech mechanical spans with the same cascade inference uses
+    (:func:`cardiag.audio.cascade.candidate_regions`), score them with CLAP, and
+    write one short clip WAV per surviving span. A 10-minute recording becomes N
+    short spans exactly like a scraped clip, so training and inference always see
+    the same unit. ``cause`` overrides the title-keyword label when the source
+    already knows the part (e.g. a curated dataset folder).
     """
     import librosa
     import soundfile as sf
@@ -112,7 +130,7 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap) -> 
 
     out_dir = out_base / "clips" / vid
     out_dir.mkdir(parents=True, exist_ok=True)
-    l2 = l2_from_text(title)
+    l2 = [cause] if cause else l2_from_text(title)    # explicit cause wins over keywords
     shop = speech_frac >= config.SHOP_SPEECH_FRAC
     recs = []
     for i, (cp, fp, lp) in enumerate(zip(conf, fault, l1p)):
@@ -121,15 +139,48 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap) -> 
             continue
         f = out_dir / f"clip_{i:02d}.wav"
         sf.write(f, clips[i], sr)
-        recs.append({"clip_id": f"{vid}_{i:02d}", "video": vid, "wav": str(f),
-                     "kind": kind, "l1": l1, "l1_conf": round(cf, 3),
-                     "status": status, "l2_candidates": l2, "title": title})
+        rec = {"clip_id": f"{vid}_{i:02d}", "video": vid, "wav": str(f),
+               "kind": kind, "l1": l1, "l1_conf": round(cf, 3),
+               "status": status, "l2_candidates": l2, "title": title}
+        if cause:
+            rec["cause"] = cause
+        recs.append(rec)
     if not recs:
         try:
             out_dir.rmdir()
         except OSError:
             pass
     return recs
+
+
+def ingest_dir(audio_dir, kind: str, cause: str | None = None,
+               source: str = "local") -> int:
+    """Bring-your-own-audio: segment every clip in a folder through the SAME cascade
+    as scraping, into the corpus. Any length is handled — long recordings become
+    multiple short spans. Then ``cardiag train`` consumes them like any other clip.
+
+    The single coherent path for non-scraped data: a cloner with a folder of, say,
+    'wheel_bearing' recordings runs one command and they're segmented + labeled
+    identically to everything else."""
+    import glob
+    audio_dir = Path(audio_dir)
+    if not audio_dir.exists():
+        raise SystemExit(f"no such folder: {audio_dir}")
+    files = [p for ext in ("wav", "mp3", "m4a", "ogg", "flac", "aac", "webm", "mp4")
+             for p in glob.glob(str(audio_dir / f"**/*.{ext}"), recursive=True)]
+    if not files:
+        raise SystemExit(f"no audio files under {audio_dir}")
+    out_base = paths.DATA / source
+    clap, recs = _clap(), []
+    for i, p in enumerate(files):
+        vid = f"{source}_{Path(p).stem}"[:60]
+        recs += _label_audio(p, vid, "", kind, out_base, clap, cause=cause)
+        if (i + 1) % 25 == 0:
+            print(f"  [{source} {i+1}/{len(files)}] spans so far: {len(recs)}", flush=True)
+    n = _write_corpus(recs, out_base)
+    print(f"ingested {len(files)} file(s) -> {n} mechanical-span clips in "
+          f"{out_base/'corpus.jsonl'}  (kind={kind}, cause={cause or 'from title'})")
+    return n
 
 
 def _write_corpus(records, out_base: Path) -> int:
@@ -366,6 +417,13 @@ def _triage_of(row: dict):
     return None
 
 
+def _region_of(row: dict):
+    """The 'where in the car' zone (6-way) for a fault clip, from its cause family."""
+    if row.get("kind") != "fault":
+        return None
+    return _CAUSE_TO_REGION.get(_cause_of(row))
+
+
 # ===================================================================== train
 def _new_head():
     from sklearn.linear_model import LogisticRegression
@@ -567,6 +625,13 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         rows, _knock_of, embed, min_class, prune_noisy)
     heads["cause"], report["cause"], temps["cause"] = _fit(
         [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class, prune_noisy)
+    # "where in the car" region head (6 zones) — the OOS-robust headline output.
+    # Derived from the SAME cause_fn as the cause head (so it works for scraped
+    # rows and for explicit-cause rows alike), then mapped to a coarse zone.
+    def region_label(r):
+        return _CAUSE_TO_REGION.get(cause_fn(r)) if r.get("kind") == "fault" else None
+    heads["region"], report["region"], temps["region"] = _fit(
+        [r for r in rows if r.get("kind") == "fault"], region_label, embed, min_class, prune_noisy)
 
     # refuse to ship a model where EVERY head is a constant (e.g. --min-class too
     # high, or a single-class corpus) — that would be a silent garbage model.
@@ -583,7 +648,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
     paths.TRAIN_DATA.mkdir(parents=True, exist_ok=True)
     _dump({"heads": heads, "emb": "clap", "temps": temps,
            "degenerate": {h: report[h].get("degenerate", False)
-                          for h in ("kind", "knock", "cause")}}, paths.MODEL_CLAP)
+                          for h in ("kind", "knock", "cause", "region")}}, paths.MODEL_CLAP)
 
     def triage_label(r):
         if r.get("kind") != "fault":

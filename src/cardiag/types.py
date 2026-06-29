@@ -45,6 +45,19 @@ class Segment:
 
 
 @dataclass(frozen=True)
+class Region:
+    """A 'where in the car' zone with its probability. This is the headline
+    localization output — the OOS sanity check shows the right zone lands in the
+    top-3 ~75% of the time on held-out verified clips, where fine cause and knock
+    do not generalize."""
+    zone: str
+    p: float
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class Cause:
     """A candidate part/cause with its probability. Cause is *suggestive*, not
     definitive — fine cause from audio alone has a measured ceiling."""
@@ -63,6 +76,7 @@ class Diagnosis:
     verdict: Verdict
     fault_probability: float
     engine_knock_probability: float
+    regions: list[Region] = field(default_factory=list)
     causes: list[Cause] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     note: str = ("Fine cause from sound alone is uncertain; treat as triage, "
@@ -73,8 +87,9 @@ class Diagnosis:
             "file": self.file,
             "verdict": self.verdict.value,
             "fault_probability": round(self.fault_probability, 3),
-            "engine_knock_probability": round(self.engine_knock_probability, 3),
+            "regions": [r.to_dict() for r in self.regions],
             "causes": [c.to_dict() for c in self.causes],
+            "engine_knock_probability": round(self.engine_knock_probability, 3),
             "segments": [s.to_dict() for s in self.segments],
             "note": self.note,
         }

@@ -1,7 +1,7 @@
 """Build the bundled offline fixtures (run once; the output is committed).
 
 Scrapes a small real corpus, CLAP-embeds the clips, and saves a tiny
-``embeddings.npz`` (embeddings + labels, NOT audio — license-clean and ~100 KB)
+``embeddings.npz`` (embeddings + labels, NOT audio: license-clean and ~100 KB)
 into the package. ``cardiag train --fixtures`` trains on this with no network and
 no 2 GB CLAP download, so a fresh clone can produce a model in seconds.
 

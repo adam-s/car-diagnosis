@@ -1,4 +1,4 @@
-"""``clean()`` — isolate the mechanical sound from a recording.
+"""``clean()``: isolate the mechanical sound from a recording.
 
 This is the function the project description calls for: *"the uploaded clip is
 cleaned with removal of music, voice, and other sounds, exactly as in the
@@ -59,7 +59,7 @@ class CleanResult:
         return self.music_probability >= MUSIC_THRESH
 
     def merged_audio(self) -> np.ndarray:
-        """All isolated spans concatenated — the clean signal to embed."""
+        """All isolated spans concatenated: the clean signal to embed."""
         return (np.concatenate(self.isolated) if self.isolated
                 else np.zeros(0, dtype=np.float32))
 

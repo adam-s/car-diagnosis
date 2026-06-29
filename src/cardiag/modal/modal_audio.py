@@ -1,9 +1,9 @@
-"""Audio-LLM second opinion on Modal — Qwen2-Audio-7B-Instruct via vLLM.
+"""Audio-LLM second opinion on Modal: Qwen2-Audio-7B-Instruct via vLLM.
 
 Why: the region classifier is confidently WRONG on the engine minority
 (confidence.py band table). An audio-LLM has a different inductive bias
 (AudioSet + speech pretraining, instruction-following) and LISTENS to the clip
-directly — agreement between it and the CLAP head is a confidence signal
+directly: agreement between it and the CLAP head is a confidence signal
 neither gives alone, and at scale it is a cross-modal label verifier
 (text-mined label vs what the audio actually contains).
 

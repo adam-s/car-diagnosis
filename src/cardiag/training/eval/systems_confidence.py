@@ -1,4 +1,4 @@
-"""Honest CONFIDENCE across all car systems/parts — the right question.
+"""Honest CONFIDENCE across all car systems/parts: the right question.
 
 systems_eval measured recall (can it find every brake clip? no). The product
 bar is different: when the model says "80% brakes", is it right 80%, and on how
@@ -6,7 +6,7 @@ many clips can it be that sure? A model that abstains on the hard 80% but is
 reliably calibrated on the confident 20% is acceptable.
 
 Two fixes vs systems_eval:
-  - NATURAL priors (drop class_weight=balanced) — balancing distorts
+  - NATURAL priors (drop class_weight=balanced): balancing distorts
     probabilities to buy minority recall and wrecks calibration; we want honest
     confidence, not recall on everything.
   - measure precision@confidence + reliability (claimed->empirical), per class,

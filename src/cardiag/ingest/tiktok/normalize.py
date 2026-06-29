@@ -1,5 +1,5 @@
 """Normalize OCR cause-claims into a canonical taxonomy AND cross-check them
-against the CLAP sound-type — the two-independent-modalities gold gate.
+against the CLAP sound-type: the two-independent-modalities gold gate.
 
 For each labeled bite Haiku receives (raw OCR text, CLAP sound-type) and returns:
   - canonical_part : OCR text mapped to a clean part name (or null if not a part)

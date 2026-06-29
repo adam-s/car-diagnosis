@@ -1,4 +1,4 @@
-"""Discover sub-type DIAGNOSTIC videos — the tight-timestamp label source.
+"""Discover sub-type DIAGNOSTIC videos: the tight-timestamp label source.
 
 The overnight finding: tight, host-cued labels ("here's what a bad X sounds
 like") are the lever. Those come from narrated diagnostic videos, not

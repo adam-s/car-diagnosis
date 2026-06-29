@@ -1,4 +1,4 @@
-"""Per-clip multi-signal cause FUSION — the payoff of all the metadata work.
+"""Per-clip multi-signal cause FUSION: the payoff of all the metadata work.
 
 Every clip carries several weak, independent signals. None is reliable alone;
 their AGREEMENT is. This hands Haiku all of them per clip and gets back one

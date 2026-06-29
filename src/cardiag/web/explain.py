@@ -1,4 +1,4 @@
-"""Instrumented pipeline — stream what happens to a clip, stage by stage.
+"""Instrumented pipeline: stream what happens to a clip, stage by stage.
 
 ``explain()`` runs the same cascade the corpus and inference use, but yields an
 event after each stage so a UI can animate the cleaning live: the waveform, the
@@ -29,8 +29,8 @@ MUSIC_THRESH = 0.5
 
 
 # ---------------------------------------------------------------- URL intake
-# Only these media platforms may be fetched server-side. Anything else — internal
-# hosts, cloud metadata (169.254.169.254), file://, localhost — is refused BEFORE
+# Only these media platforms may be fetched server-side. Anything else (internal
+# hosts, cloud metadata (169.254.169.254), file://, localhost) is refused BEFORE
 # yt-dlp ever sees the URL. This is the SSRF guard for the link-paste feature.
 _ALLOWED_HOSTS = ("youtube.com", "youtu.be", "youtube-nocookie.com",
                   "tiktok.com", "reddit.com", "redd.it", "v.redd.it")

@@ -1,6 +1,6 @@
 """Discovery: harvest a deduped worklist from fault + normal query sets.
 
-Each entry records which query set found it (kind: fault|normal) — normals are
+Each entry records which query set found it (kind: fault|normal); normals are
 the negative/baseline class and tend to carry year/make/model in their titles.
 Lesson encoded: prefer 60-180s compilations (purest labels); skip >25min vlogs.
 

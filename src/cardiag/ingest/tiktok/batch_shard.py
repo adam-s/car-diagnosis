@@ -1,7 +1,7 @@
 """Sharded parallel runner over batch.py's per-video pipeline.
 
 The single-process run is latency-bound (~0.5 of 12 cores): serial ffmpeg /
-OCR / MPS round-trips, not CPU saturation — so N worker processes over
+OCR / MPS round-trips, not CPU saturation, so N worker processes over
 disjoint worklist shards scale ~linearly. Carefully:
 
   - downloads stay globally gentle: 1 download thread + window of 4 per
@@ -10,7 +10,7 @@ disjoint worklist shards scale ~linearly. Carefully:
     corpus.jsonl from several processes can interleave partial lines);
     `merge` folds shards into the main ledger afterwards
   - shard assignment strides the RAW worklist (video i -> shard i mod N),
-    THEN filters the done-set — stable across restarts, shards stay disjoint
+    THEN filters the done-set: stable across restarts, shards stay disjoint
   - done-set = corpus.jsonl + every shard file, so reruns never rework
   - workers never run batch.py's global tmp/ cleanup (other workers' mp4s
     live there); each cleans only its own leftovers
@@ -79,7 +79,7 @@ def worker(k, n):
                 print(f"  --- s{k}: {i}/{len(wl)} | {stats['bites']} bites, "
                       f"{stats['ocr_labeled']} OCR-labeled ---", flush=True)
     pool.shutdown(wait=False, cancel_futures=True)
-    for vid in futures:                          # own leftovers only — tmp/ is shared
+    for vid in futures:                          # own leftovers only, tmp/ is shared
         (DATA / "tmp" / f"{vid}.mp4").unlink(missing_ok=True)
     print(f"[shard {k}] DONE: {stats['ok']} ok, {stats['failed']} failed, "
           f"{stats['bites']} bites ({stats['ocr_labeled']} OCR-labeled)")

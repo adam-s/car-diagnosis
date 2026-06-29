@@ -1,7 +1,7 @@
 """Scrape r/MechanicAdvice fault-sound videos + diagnoses via old.reddit HTML.
 
 Reddit blocks the .json API under load (403), but the old.reddit.com HTML pages
-stay accessible without auth — the robust transport. Extraction is deterministic
+stay accessible without auth: the robust transport. Extraction is deterministic
 (regex over structured HTML attrs + comment blocks); the only authenticated step
 is yt-dlp pulling v.redd.it audio with the Firefox session cookies.
 
@@ -30,7 +30,7 @@ SUBS = ["carproblems", "MechanicAdvice", "AskMechanics", "autorepair",
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 # yt-dlp reads this browser's cookies to fetch v.redd.it audio. This decrypts
-# your logged-in session — set CARDIAG_COOKIES_BROWSER=chrome/none to change, or
+# your logged-in session; set CARDIAG_COOKIES_BROWSER=chrome/none to change, or
 # accept that the Reddit audio step touches your Firefox profile. (See README.)
 BROWSER = os.environ.get("CARDIAG_COOKIES_BROWSER", "firefox")
 THROTTLE = 3.5              # be polite; HTML is tolerant but don't push it
@@ -44,7 +44,7 @@ AUDIO = DATA / "audio"
 LEDGER = DATA / "posts.jsonl"
 
 # Camoufox session (set by main() when the stealth browser is available). When
-# set, page fetches go through Firefox — the project-wide scraping transport;
+# set, page fetches go through Firefox: the project-wide scraping transport;
 # otherwise fall back to a plain urllib request.
 _SESSION = None
 

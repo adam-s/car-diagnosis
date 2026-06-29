@@ -2,18 +2,18 @@
 
 This is the loop a fresh clone runs, across all three sources (YouTube, Reddit,
 TikTok). It is deliberately self-contained: it needs only ``yt-dlp`` + CLAP
-(downloaded on first use) — **no LLM and no external datasets**. TikTok adds a
+(downloaded on first use): **no LLM and no external datasets**. TikTok adds a
 stealth browser (patchright) for discovery. Labels come from what is knowable at
 scrape time:
 
-  * ``kind`` (fault / normal) — YouTube's fault vs normal query sets; Reddit and
+  * ``kind`` (fault / normal): YouTube's fault vs normal query sets; Reddit and
     TikTok are fault-dominant sources, so they contribute the fault class.
-  * ``l1`` sound-type and mechanical/tool gating — CLAP zero-shot.
-  * ``cause`` (part family) — keyword match on the title / caption.
+  * ``l1`` sound-type and mechanical/tool gating: CLAP zero-shot.
+  * ``cause`` (part family): keyword match on the title / caption.
 
 Every platform funnels through one labeling function (:func:`_label_audio`) so a
 clip looks identical regardless of source. That weaker-but-honest supervision
-trains a real, working model from nothing — it teaches the loop by running it.
+trains a real, working model from nothing: it teaches the loop by running it.
 
     cardiag scrape youtube|reddit|tiktok   # -> data/<platform>/corpus.jsonl
     cardiag train                          # corpus -> CLAP -> heads -> model
@@ -156,7 +156,7 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap,
 def ingest_dir(audio_dir, kind: str, cause: str | None = None,
                source: str = "local") -> int:
     """Bring-your-own-audio: segment every clip in a folder through the SAME cascade
-    as scraping, into the corpus. Any length is handled — long recordings become
+    as scraping, into the corpus. Any length is handled: long recordings become
     multiple short spans. Then ``cardiag train`` consumes them like any other clip.
 
     The single coherent path for non-scraped data: a cloner with a folder of, say,
@@ -284,7 +284,7 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault")
     """Discover clips via the stealth browser, download + label each with ``kind``.
 
     ``kind="fault"`` (default) uses the problem queries; ``kind="normal"`` uses the
-    healthy-engine queries — scrape both to give `cardiag train` fault AND normal
+    healthy-engine queries; scrape both to give `cardiag train` fault AND normal
     clips from TikTok, which breaks the recording-source confound (docs/MODEL_CARD.md).
 
     Needs the stealth browser: `pip install -e .[scrape]` then
@@ -437,7 +437,7 @@ def _source_of(r: dict) -> str:
 
 
 def _self_confidence(X, y, groups):
-    """Out-of-fold P(observed label) per clip — the confident-learning signal
+    """Out-of-fold P(observed label) per clip: the confident-learning signal
     (Northcutt et al. 2021). A clip whose audio the model confidently assigns to a
     *different* class than its (weak, keyword-derived) label is a likely mislabel."""
     from sklearn.model_selection import StratifiedGroupKFold
@@ -482,7 +482,7 @@ def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
                n_splits: int = 5, repeats: int = 5) -> dict:
     """Honest by-video performance: repeated StratifiedGroupKFold balanced accuracy
     (mean±std), not a single arbitrary split. Balanced accuracy because the corpus
-    is class-skewed (raw accuracy vs majority misleads — see docs/MODEL_CARD.md).
+    is class-skewed (raw accuracy vs majority misleads; see docs/MODEL_CARD.md).
     With ``prune_frac`` the confident-learning prune is applied WITHIN each train
     fold only (test stays untouched), so the estimate reflects the shipped pipeline."""
     from sklearn.metrics import balanced_accuracy_score
@@ -618,7 +618,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         rows, _knock_of, embed, min_class, prune_noisy)
     heads["cause"], report["cause"], temps["cause"] = _fit(
         [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class, prune_noisy)
-    # "where in the car" region head (6 zones) — the OOS-robust headline output.
+    # "where in the car" region head (6 zones): the OOS-robust headline output.
     # Derived from the SAME cause_fn as the cause head (so it works for scraped
     # rows and for explicit-cause rows alike), then mapped to a coarse zone.
     def region_label(r):
@@ -630,7 +630,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
     # knock, wheel bearing, CV…). A region head trained ONLY on knock-sound clips
     # localizes the knock 1.8x better than the general head (measured: top-1 0.44 vs
     # 0.33), because it doesn't have to also separate non-knock sounds. diagnose()
-    # SOFT-routes to it by the knock probability (gating, not a hard gate — so a
+    # SOFT-routes to it by the knock probability (gating, not a hard gate, so a
     # shaky Stage-1 detector degrades gracefully to the general region head).
     def _is_knock(r):
         return r.get("kind") == "fault" and "knock" in (r.get("l1") or "").lower()
@@ -638,7 +638,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         [r for r in rows if _is_knock(r)], region_label, embed, min_class, prune_noisy)
 
     # refuse to ship a model where EVERY head is a constant (e.g. --min-class too
-    # high, or a single-class corpus) — that would be a silent garbage model.
+    # high, or a single-class corpus): that would be a silent garbage model.
     if all(report[h].get("degenerate") for h in ("kind", "knock", "cause")):
         raise SystemExit(
             "every head is degenerate — the corpus has too few clips per class "
@@ -693,7 +693,7 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
 
     print(f"embedding {len(rows)} clips with CLAP…", flush=True)
     # Each corpus clip is an isolated span, embedded via the SAME embed_clip()
-    # inference uses — train/serve share the contract. A span longer than the CLAP
+    # inference uses: train/serve share the contract. A span longer than the CLAP
     # window is split into <=10 s windows (window_spans, kept per the A/B test): each
     # window becomes its own training row with the SAME label and video group, so
     # windows of one clip never split across a CV fold (no leakage). Inference pools
@@ -717,7 +717,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "_fixtures"
 
 
 def train_from_fixtures(min_class: int = 2) -> dict:
-    """Train OFFLINE on the bundled fixture embeddings — no scrape, no network,
+    """Train OFFLINE on the bundled fixture embeddings: no scrape, no network,
     no CLAP download. Lets a fresh clone produce a model in seconds to learn the
     flow before running the real scrape."""
     npz = FIXTURES / "embeddings.npz"

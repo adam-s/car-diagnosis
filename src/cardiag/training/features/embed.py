@@ -1,7 +1,7 @@
 """Embed every manifest clip with frozen CLAP audio embeddings (512-d).
 
 First-model baseline: CLAP is already local and its embeddings are the
-zero-shot labeler's feature space — the trained-head delta over zero-shot
+zero-shot labeler's feature space: the trained-head delta over zero-shot
 prompts is the first number Phase 2 needs. BEATs embeddings are the planned
 upgrade (literature: BEATs >> CLAP for trained heads) and will be a second
 embed script writing the same cache format.

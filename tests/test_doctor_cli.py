@@ -32,7 +32,7 @@ def test_cli_start_runs(tmp_path, monkeypatch):
     # point at an empty data dir so 'start' trains fixtures, then prints next steps
     monkeypatch.setenv("CARDIAG_DATA", str(tmp_path))
     res = runner.invoke(app, ["start"])
-    # exits 0 (ready) or 1 (a hard dep like yt-dlp missing in CI) — never crashes;
+    # exits 0 (ready) or 1 (a hard dep like yt-dlp missing in CI), never crashes;
     # either way it produced a guided report
     assert res.exit_code in (0, 1)
     assert "diagnose" in res.stdout or "Fix the" in res.stdout

@@ -1,4 +1,4 @@
-"""Rigorous, reproducible scorecard — the project's answer to "is it real, and did
+"""Rigorous, reproducible scorecard: the project's answer to "is it real, and did
 this change actually help?"
 
 Implements the evaluation protocol from the literature (see
@@ -7,12 +7,12 @@ docs/DEFENSE.md):
   * **By-video grouping** so clips from one recording never straddle train/test
     (Kaufman 2012 leakage; Roberts 2021). `StratifiedGroupKFold` keeps the 74%
     fault ratio balanced across folds.
-  * **Imbalance-aware metrics** — balanced accuracy, macro-F1, MCC (Chicco &
-    Jurman 2020), AUROC + AUPRC (Saito & Rehmsmeier 2015) — never raw accuracy,
+  * **Imbalance-aware metrics** (balanced accuracy, macro-F1, MCC (Chicco &
+    Jurman 2020), AUROC + AUPRC (Saito & Rehmsmeier 2015)), never raw accuracy,
     and the majority baseline is always printed beside the number.
-  * **Calibration** — ECE (equal-frequency bins, Naeini 2015) + Brier, so a
+  * **Calibration**: ECE (equal-frequency bins, Naeini 2015) + Brier, so a
     "90% confidence" claim is auditable.
-  * **Significance** — a by-video label-permutation null (Ojala & Garriga 2010)
+  * **Significance**: a by-video label-permutation null (Ojala & Garriga 2010)
     answers "above chance?"; the Nadeau–Bengio (2003) corrected resampled t-test
     answers "better than the previous version, or just noise?".
 
@@ -166,7 +166,7 @@ def agg(folds, keys=("bal_acc", "macro_f1", "mcc", "auroc", "auprc", "brier")):
 
 
 def topk_cv(X, y, groups, ks=(1, 2, 3, 4), make=lr_head, n_splits=5, repeats=5):
-    """Repeated grouped-CV top-k accuracy — is the true label within the top-k
+    """Repeated grouped-CV top-k accuracy: is the true label within the top-k
     ranked predictions? The honest metric for a head whose *product is a ranked
     shortlist* (cause): top-1 badly understates a useful top-3. Returns micro
     (per-clip) and macro (per-class) top-k plus the random-chance baseline."""
@@ -278,7 +278,7 @@ def run(out_md: Path | None = None) -> dict:
             heads[name]["topk"] = topk_cv(Xs, ys, gs)
     report["heads"] = heads
 
-    # top-k for the ranked-shortlist (multiclass) heads — the metric that matches
+    # top-k for the ranked-shortlist (multiclass) heads: the metric that matches
     # how the product is used: "is the right answer in the 3-4 causes we show?"
     multi = {n: h for n, h in heads.items() if "topk" in h}
     if multi:
@@ -307,7 +307,7 @@ def run(out_md: Path | None = None) -> dict:
                   f"label-shuffled null {nm:.3f}±{ns:.3f}, **p={p:.3f}** "
                   f"({'REAL signal above chance' if p < 0.05 else 'not distinguishable from chance'})."]
 
-    # source confound — Stage 0: how predictable is the recording source?
+    # source confound, Stage 0: how predictable is the recording source?
     folds, _ = grouped_cv(X, SRC, VID)   # multiclass -> only balAcc/macroF1/mcc populate
     a = agg(folds, keys=("bal_acc", "macro_f1", "mcc"))
     report["source_confound"] = {"predict_source_balacc": a["bal_acc"], "mcc": a["mcc"]}

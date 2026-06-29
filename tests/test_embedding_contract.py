@@ -1,7 +1,7 @@
 """The train/serve embedding contract (cardiag.audio.embed).
 
-These lock in the anti-skew invariant: every vector a head ever sees — at train
-or at serve — is a single-span embed_clip() vector, and multi-span recordings are
+These lock in the anti-skew invariant: every vector a head ever sees (at train
+or at serve) is a single-span embed_clip() vector, and multi-span recordings are
 pooled in PROBABILITY space, never by averaging embeddings. All offline (no CLAP).
 """
 from __future__ import annotations
@@ -46,7 +46,7 @@ class _Res:
 
 def test_model_vectors_is_one_row_per_isolated_span(monkeypatch):
     monkeypatch.setattr(embed, "clean", lambda p: _Res())
-    # embed_clips is the only CLAP call — stub it to a recognizable matrix
+    # embed_clips is the only CLAP call: stub it to a recognizable matrix
     monkeypatch.setattr(embed, "embed_clips",
                         lambda ys, sr=48_000: np.arange(len(ys) * 4).reshape(len(ys), 4))
     ev = embed.model_vectors("clip.wav", clean_audio=True)

@@ -1,4 +1,4 @@
-"""Typed result objects — the public, self-documenting API surface.
+"""Typed result objects: the public, self-documenting API surface.
 
 Every front-end (CLI, web, library use) receives these dataclasses, never bare
 dicts. ``to_dict()`` gives a JSON-ready view for serialization.
@@ -20,7 +20,7 @@ class Band(str, Enum):
     """Calibrated confidence band, glossed from the held-out reliability table."""
     HIGH = "high"          # ~90% of similar held-out cases were correct
     MEDIUM = "medium"      # ~84%
-    LOW = "low"            # a lean, not a call — verify
+    LOW = "low"            # a lean, not a call; verify
     ABSTAIN = "abstain"    # too close to call from this audio
 
 
@@ -47,7 +47,7 @@ class Segment:
 @dataclass(frozen=True)
 class Region:
     """A 'where in the car' zone with its probability. This is the headline
-    localization output — the OOS sanity check shows the right zone lands in the
+    localization output: the OOS sanity check shows the right zone lands in the
     top-3 ~75% of the time on held-out verified clips, where fine cause and knock
     do not generalize."""
     zone: str
@@ -60,7 +60,7 @@ class Region:
 @dataclass(frozen=True)
 class Cause:
     """A candidate part/cause with its probability. Cause is *suggestive*, not
-    definitive — fine cause from audio alone has a measured ceiling."""
+    definitive: fine cause from audio alone has a measured ceiling."""
     part: str
     p: float
     note: str = ""
@@ -97,7 +97,7 @@ class Diagnosis:
 
 @dataclass(frozen=True)
 class TriageResult:
-    """Coarse engine-internal vs running-gear call with a calibrated band — the
+    """Coarse engine-internal vs running-gear call with a calibrated band: the
     one acoustically separable distinction, the honest headline product."""
     file: str
     triage: str               # "engine" | "chassis"

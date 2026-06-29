@@ -2,7 +2,7 @@
 JOINTLY with the CLAP head (creator-grouped OOF probs from confidence.py).
 
 The question that matters: is agreement between two independent listeners a
-stronger confidence signal than either alone — and does the audio-LLM rescue
+stronger confidence signal than either alone, and does the audio-LLM rescue
 the engine minority the CLAP head is confidently wrong about?
 
     uv run training/eval/eval_second_opinion.py

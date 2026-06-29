@@ -2,7 +2,7 @@
 
 The split_check finding: point accuracy under honest creator splits is weak
 (held-out cov@p90 0.562, majority 0.785). The product answer is selective
-prediction — the app reports a confidence band, and the HIGH band must be
+prediction: the app reports a confidence band, and the HIGH band must be
 empirically trustworthy. This measures that honestly:
 
   - OOF protocol: 5-fold creator-grouped CV; every clip's confidence comes
@@ -14,7 +14,7 @@ empirically trustworthy. This measures that honestly:
   - Band spec: answer-iff-conf>=t table -> the HIGH/MEDIUM/LOW cutoffs the
     app should ship with, each with its historical accuracy.
   - Video-level: mean prob across a recording's clips (the app records ~20s,
-    we predict per 5s window and aggregate) — agreement across windows is
+    we predict per 5s window and aggregate): agreement across windows is
     itself confidence.
 
     uv run training/models/confidence.py

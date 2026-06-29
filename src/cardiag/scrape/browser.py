@@ -1,4 +1,4 @@
-"""Camoufox transport — the default browser for HTML/feed page scraping.
+"""Camoufox transport: the default browser for HTML/feed page scraping.
 
 Camoufox is a hardened Firefox whose anti-fingerprinting lives at the C++ engine
 level, so it passes WAFs that flag Chromium automation and never leaks the
@@ -12,7 +12,7 @@ CDN media), and YouTube search stays on yt-dlp's search API.
 
 Needs ``pip install -e ".[scrape]"`` and ``python -m camoufox fetch`` (downloads
 the Camoufox Firefox once). ``playwright`` is pinned to 1.51.0 to match Camoufox's
-Firefox 135 — newer Playwright crashes on Firefox's location-less pageError.
+Firefox 135 (newer Playwright crashes on Firefox's location-less pageError).
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class Browser:
         self._cm = Camoufox(headless=self.headless, humanize=True)
         self.browser = self._cm.__enter__()
         self.page = self.browser.new_page()
-        # Firefox emits location-less pageerrors that crash the driver — swallow.
+        # Firefox emits location-less pageerrors that crash the driver; swallow.
         self.page.on("pageerror", lambda e: None)
         return self
 

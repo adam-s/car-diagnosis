@@ -1,16 +1,16 @@
 """Build training manifests from the scraped corpora + external anchor sets.
 
-Selection, cleaning, canonicalization, and leakage-safe splits — clips are
+Selection, cleaning, canonicalization, and leakage-safe splits; clips are
 referenced in place (repo-root-relative paths), never moved or copied.
 
 Usage (from repo root):
     uv run training/prep/prepare.py
 
 Outputs (data/training/, gitignored):
-    train.jsonl / val.jsonl / test.jsonl   — scrape clips, group-split 80/10/10
-    external_eval.jsonl                    — verified-label anchors (test-only)
-    anchors_fewshot.jsonl                  — DB1 fine-fault exemplars
-    stats.json                             — class/tier/split distributions
+    train.jsonl / val.jsonl / test.jsonl   : scrape clips, group-split 80/10/10
+    external_eval.jsonl                    : verified-label anchors (test-only)
+    anchors_fewshot.jsonl                  : DB1 fine-fault exemplars
+    stats.json                             : class/tier/split distributions
 
 Rules baked in (see README.md for rationale):
     - groups: YT creator channel_id (via meta join), TT video id; split is a
@@ -64,7 +64,7 @@ def yt_creator_map():
 
 
 def split_of(group):
-    """Deterministic 80/10/10 by group hash — stable across runs."""
+    """Deterministic 80/10/10 by group hash, stable across runs."""
     h = int(hashlib.md5(group.encode()).hexdigest(), 16) % 100
     return "train" if h < 80 else ("val" if h < 90 else "test")
 
@@ -143,7 +143,7 @@ AIMECH_LABELS = {
     "Normal engine": ("normal", None),
     "Engine Issue": ("fault", None),       # coarse: fault, cause unknown
     # "Non engine issue" excluded: semantics ambiguous (non-engine *car*
-    # fault vs non-automotive?) — measured mech_confirm 0.936 says these are
+    # fault vs non-automotive?): measured mech_confirm 0.936 says these are
     # car sounds, so mapping them to nonauto would poison kind-level eval.
 }
 
@@ -233,7 +233,7 @@ def external_records():
 
 
 def db1_records():
-    """~27 fine-fault exemplars — few-shot reference anchors, not eval."""
+    """~27 fine-fault exemplars: few-shot reference anchors, not eval."""
     for fault_dir in sorted(DB1.iterdir()):
         if not fault_dir.is_dir():
             continue

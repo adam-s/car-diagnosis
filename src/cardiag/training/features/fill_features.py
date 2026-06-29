@@ -1,7 +1,7 @@
 """Fill AST + DSP2 feature caches for curated clips the old manifests missed.
 
 embed_ast.py / dsp_features2.py resolve clip paths via the training manifests,
-which predate the scaled scrape — so newer curated clips (most of the TikTok
+which predate the scaled scrape, so newer curated clips (most of the TikTok
 sub-labeled set) have CLAP but no AST/DSP2. The confidence ablations need the
 full intersection. This resolves paths straight from the platform corpora and
 appends the missing rows to both caches.

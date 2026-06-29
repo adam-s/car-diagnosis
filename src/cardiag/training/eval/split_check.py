@@ -4,7 +4,7 @@ The sub-label experiments grouped by video; two videos from the same creator
 (same mic/garage/car) can leak across folds. This re-measures the curated set
 under stricter grouping:
   - by VIDEO    (what we reported)
-  - by CREATOR  (YT channel / TT video / reddit post) — the honest one
+  - by CREATOR  (YT channel / TT video / reddit post): the honest one
 and with two protocols:
   - grouped 5-fold CV (mean ± fold std)
   - a FIXED held-out test: 75% of creator-groups train, 25% held out (touched

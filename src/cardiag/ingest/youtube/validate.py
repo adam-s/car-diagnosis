@@ -1,4 +1,4 @@
-"""QA suite for the corpus ledger — three independent checks, cheap-first:
+"""QA suite for the corpus ledger: three independent checks, cheap-first:
 
   A. FFT physics (free): does the L1 label agree with spectral character?
   B. Cluster coherence (free): does each auto clip's nearest CLAP neighbor
@@ -7,7 +7,7 @@
      plausible? Catches topic/label mismatches like "normal idle" clips inside
      "WHAT ROD BEARING KNOCK SOUNDS LIKE".
 
-Fable is NOT used here — it audits the final gold sample once, by hand.
+Fable is NOT used here: it audits the final gold sample once, by hand.
 
     uv run validate.py
 """

@@ -4,7 +4,7 @@
     -> cascade: energy + Silero VAD + spectral      (CPU, ~free)
     -> CLAP confirm: mechanical vs music/speech/etc (GPU, survivors only)
     -> CLAP fault-vs-tool gate (margin-based; tools kept as 'shop_tool' negatives)
-    -> CLAP L1 sound-type ('normal' needs a WIDE margin — CLAP defaults to it)
+    -> CLAP L1 sound-type ('normal' needs a WIDE margin; CLAP defaults to it)
     -> cyclic + spectral features
     -> clip wav + ledger record (provenance on everything)
 

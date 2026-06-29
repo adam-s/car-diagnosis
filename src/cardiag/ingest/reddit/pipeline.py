@@ -1,9 +1,9 @@
-"""Turn scraped Reddit audio into clean fault CLIPS — same cascade as YouTube.
+"""Turn scraped Reddit audio into clean fault CLIPS: same cascade as YouTube.
 
 Reddit gives one short phone-mic video per post (the fault sound) + a crowd
 diagnosis (label_reddit.py). This runs the YouTube cascade (Silero VAD + energy
 + spectral) to isolate the non-speech mechanical spans, scores them with CLAP
-(L1 sound-type + mechanical-confirm), and writes clip wavs + a ledger — so
+(L1 sound-type + mechanical-confirm), and writes clip wavs + a ledger, so
 Reddit clips look exactly like YouTube/TikTok clips for the unified set.
 
     python -m cardiag.ingest.reddit.pipeline

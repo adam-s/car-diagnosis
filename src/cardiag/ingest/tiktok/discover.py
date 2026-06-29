@@ -1,13 +1,13 @@
 """TikTok discovery via stealth-browser network interception (intercept2 pattern).
 
-yt-dlp can't read TikTok search — it's a signed in-app XHR. So we drive a stealth
+yt-dlp can't read TikTok search: it's a signed in-app XHR. So we drive a stealth
 browser to each search page, let it fire /api/search/item/full/, and capture the
 feed JSON off the wire. One browser session loops all queries.
 
 Stealth (from intercept2 fingerprint-controller): patchright + chrome channel
 gives webdriver=false and clean sec-ch-ua for free; we additionally strip
 "HeadlessChrome" from navigator.userAgent (the one remaining bot tell) so this
-runs HEADLESS — no visible window, scalable unsupervised.
+runs HEADLESS: no visible window, scalable unsupervised.
 
     python -m cardiag.ingest.tiktok.discover                  # all PROBLEM_QUERIES
     python -m cardiag.ingest.tiktok.discover "one custom query"  # single query
@@ -45,11 +45,11 @@ PROBLEM_QUERIES = [
     "bad motor mount clunk", "valve tapping noise",
 ]
 
-# Healthy-engine queries — the missing 'normal' class. The corpus is otherwise
+# Healthy-engine queries: the missing 'normal' class. The corpus is otherwise
 # fault-dominated (every normal clip came from YouTube), so scraping these lets
 # `cardiag train` learn fault-vs-normal from more than one source and breaks the
 # recording-source confound documented in docs/MODEL_CARD.md. Labels are weak
-# (a "healthy engine" clip could be clickbait) — same honest weak supervision as
+# (a "healthy engine" clip could be clickbait); same honest weak supervision as
 # the problem queries.
 NORMAL_QUERIES = [
     "healthy engine idle sound", "what a good engine sounds like",

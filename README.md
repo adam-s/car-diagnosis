@@ -1,25 +1,25 @@
 # cardiag — diagnose a car fault from its sound
 
-`cardiag` is an end-to-end, honest audio-ML pipeline: **scrape** fault-sound clips
-from YouTube/TikTok, **clean** the audio (isolate the mechanical sound from speech,
-music, and noise), **embed** it with a frozen CLAP model, and **train** small
-linear heads to triage the fault — exposed as a CLI and a live web app.
+`cardiag` is an end-to-end audio-ML pipeline. It scrapes fault-sound clips from
+YouTube/TikTok, cleans the audio (isolating the mechanical sound from speech, music,
+and noise), embeds it with a frozen CLAP model, and trains small linear heads to
+triage the fault. It is exposed as a CLI and a live web app.
 
-It is a **proof of concept**, and it is honest about what that means. Diagnosing a
-car fault from a phone recording is genuinely hard, so `cardiag` is built to be a
-**calibrated triage aid, not a diagnoser**: it tells you whether something sounds
-wrong, roughly *where in the car* it is, and a ranked shortlist of likely parts —
-and it says **"uncertain"** instead of bluffing when the audio won't support a call.
+This is a proof of concept, and honest about what that means. Diagnosing a car fault
+from a phone recording is genuinely hard, so `cardiag` is built as a calibrated
+triage aid rather than a diagnoser: it tells you whether something sounds wrong,
+roughly *where in the car* it is, and a ranked shortlist of likely parts. When the
+audio won't support a call, it says "uncertain" instead of bluffing.
 
-> The real contribution is the **cleaning + honest-training recipe**, which is
-> reusable on other audio datasets. The modest accuracy here reflects how hard the
-> problem is from crude phone audio (we hit the literature ceiling) — the *same*
-> method reaches 0.93 AUROC on clean engine audio. See [docs/DEFENSE.md](docs/DEFENSE.md).
+> The real contribution is the cleaning + honest-training recipe, which is reusable
+> on other audio datasets. The modest accuracy here reflects how hard the problem is
+> from crude phone audio (we hit the literature ceiling); the *same* method reaches
+> 0.93 AUROC on clean engine audio. See [docs/DEFENSE.md](docs/DEFENSE.md).
 
 ## What it actually achieves
 
 Measured out-of-sample, leakage-safe (by-video grouped CV over 1,031 video groups;
-permutation **p = 0.0005**). These are honest numbers, not a leaderboard:
+permutation **p = 0.0005**). These are honest numbers, not a leaderboard.
 
 | Capability | Result | vs. chance |
 |---|---|---|
@@ -28,12 +28,12 @@ permutation **p = 0.0005**). These are honest numbers, not a leaderboard:
 | Which part? (12+ families) | right part in **top-3 ≈ 45–65%** | 3–4× |
 | Knows when it doesn't know | calibrated (ECE ≈ 0.04), returns `UNCERTAIN` | — |
 
-Full details and the one head we *demoted* for failing out-of-sample (knock) are in
-[docs/MODEL_CARD.md](docs/MODEL_CARD.md).
+Full details, and the one head we *demoted* for failing out-of-sample (knock), are
+in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
 
-## Quickstart — clone to inference
+## Quickstart: clone to inference
 
-A fresh clone is immediately usable: a small **pre-trained model ships in `models/`**,
+A fresh clone is immediately usable. A small pre-trained model ships in `models/`,
 and a synthetic demo clip is bundled, so nothing needs to be downloaded or scraped.
 
 ```bash
@@ -57,10 +57,10 @@ audio ──► clean() cascade ──► CLAP embedding ──► linear heads 
                                                   part/knock)       UNCERTAIN-aware)
 ```
 
-**One segmentation path.** Scraped clips, your own recordings (`cardiag ingest`,
-any length), and uploads at inference all flow through the *same* `clean()` cascade
-that isolates short mechanical spans, and spans over ~10 s are split into windows so
-CLAP never silently truncates them. Training and serving share one embedding
+There is **one segmentation path**. Scraped clips, your own recordings (`cardiag
+ingest`, any length), and uploads at inference all flow through the same `clean()`
+cascade that isolates short mechanical spans. Spans over ~10 s are split into windows
+so CLAP never silently truncates them. Training and serving share one embedding
 contract, so there is no train/serve skew.
 
 ## Usage
@@ -86,9 +86,9 @@ Add `--json` to any inference command for machine-readable output.
 
 ## Scope & honesty
 
-Valid for social-style / targeted-upload audio (YouTube / TikTok / a phone clip a
-user records deliberately). It is **not** a safety-critical or standalone
-diagnostic — it's a triage assistant that narrows where to look and is honest about
-its uncertainty. Model files are joblib artifacts: load only ones you trust.
+Valid for social-style / targeted-upload audio (YouTube, TikTok, or a phone clip a
+user records deliberately). It is **not** a safety-critical or standalone diagnostic.
+It is a triage assistant that narrows where to look and is honest about its
+uncertainty. Model files are joblib artifacts: load only ones you trust.
 
 License: see [LICENSE](LICENSE).

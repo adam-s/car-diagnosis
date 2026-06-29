@@ -1,7 +1,7 @@
 """Haiku-normalize YouTube chapter labels -> clean cause labels + content kind.
 
 enrich.py attaches raw chapter_label to 32% of clips, but crude keyword matching
-mapped only 11% — chapters phrased "Loose Pinion Bearings?" or "Whining When
+mapped only 11%: chapters phrased "Loose Pinion Bearings?" or "Whining When
 Cold" are obvious to a reader, opaque to keywords. And the corpus is polluted
 with enthusiast car-sound videos (Ferrari/Porsche revving = healthy NORMAL
 sounds, not faults) and junk chapters (Intro, music tracks).

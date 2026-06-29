@@ -124,7 +124,7 @@ def cov_at(corr, conf, t):
 
 
 def oof_pred(X, y, cre, method):
-    """Creator-grouped OOF probs — each clip scored by a model blind to its
+    """Creator-grouped OOF probs: each clip scored by a model blind to its
     creator. Used both for CV and to find likely-mislabeled clips."""
     P = np.zeros(len(y))
     pred = np.empty(len(y), dtype=object)

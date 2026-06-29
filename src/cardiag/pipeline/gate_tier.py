@@ -1,7 +1,7 @@
 """Code-side trust tiering over a *.fused.jsonl.
 
 Lesson from the Sonnet audit: the model's self-reported confidence is NOT
-trustworthy — it stamps 0.8+ on sound-only guesses ("EAGLES"->ball joint 0.85).
+trustworthy: it stamps 0.8+ on sound-only guesses ("EAGLES"->ball joint 0.85).
 So we DERIVE the tier in code from OBJECTIVE text corroboration, not the model's
 number. Sonnet supplies the cause; code supplies the trust.
 

@@ -1,4 +1,4 @@
-"""``cardiag inspect`` — render the pipeline as a self-contained HTML report.
+"""``cardiag inspect``: render the pipeline as a self-contained HTML report.
 
 For each clip it shows, side by side, *what the pipeline did and why*:
   * the original waveform with the kept mechanical spans highlighted,
@@ -7,7 +7,7 @@ For each clip it shows, side by side, *what the pipeline did and why*:
     dropped, how many spans it kept),
   * the CLAP zero-shot score for each sound-type prompt (so you see *why* it was
     labeled), and the music-gate scores,
-  * audio players for the original and the isolated signal — listen to the
+  * audio players for the original and the isolated signal, to listen to the
     before/after.
 
 Everything (images + audio) is inlined as base64, so the output is one HTML file

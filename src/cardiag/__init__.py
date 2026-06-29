@@ -1,4 +1,4 @@
-"""cardiag — diagnose a car's mechanical fault from the sound it makes.
+"""cardiag: diagnose a car's mechanical fault from the sound it makes.
 
 Public API
 ----------

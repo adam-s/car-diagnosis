@@ -38,7 +38,7 @@ def download(url, vid):
     if mp4.exists() and mp4.stat().st_size > 0:
         return mp4
     mp4.parent.mkdir(parents=True, exist_ok=True)
-    for attempt in range(2):   # one retry — recovers transient TikTok throttle
+    for attempt in range(2):   # one retry, recovers transient TikTok throttle
         try:
             subprocess.run(["yt-dlp", "--no-warnings", "-f", "b", "-o", str(mp4), url],
                            check=True, capture_output=True, timeout=180)
@@ -111,7 +111,7 @@ def process(url, vid, desc, query, clap):
 
     fdir = DATA / "frames" / vid
     fdir.mkdir(parents=True, exist_ok=True)
-    # 3 frames per bite (35/55/75% — biased toward where reveal captions stabilize)
+    # 3 frames per bite (35/55/75%, biased toward where reveal captions stabilize)
     bite_frames = []
     for i, (s, e) in enumerate(regions):
         fs = []
@@ -164,7 +164,7 @@ def main(limit=0, workers=5):
     if limit:
         wl = wl[:limit]
     # "attempted" = every video we've tried (incl. failures/empties), so restarts
-    # never reprocess them — not just the ones that produced bites.
+    # never reprocess them, not just the ones that produced bites.
     att = DATA / "attempted.txt"
     attempted = set(att.read_text().split()) if att.exists() else set()
     wl = [w for w in wl if w["id"] not in attempted]

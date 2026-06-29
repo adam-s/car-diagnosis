@@ -3,7 +3,7 @@
 Motivation: CLAP embeddings are knock-blind (0% verified knock recall) because
 mel/CLIP-style features wash out the low-rate impulsive structure that
 distinguishes knock/tick from idle. The pipeline already computes cyclic
-features (periodicity, pulse_hz, regularity) that target exactly this — cache
+features (periodicity, pulse_hz, regularity) that target exactly this: cache
 them for every clip so iterate.py can concat them onto any embedding.
 
 Output (data/training/dsp_features.npz): ids, X = [periodicity, pulse_hz,

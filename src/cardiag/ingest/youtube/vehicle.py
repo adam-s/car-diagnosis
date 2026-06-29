@@ -1,6 +1,6 @@
 """Vehicle metadata enrichment (Haiku, opportunistic-only).
 
-Per video: yt-dlp metadata fetch (title/description/upload_date — NO download),
+Per video: yt-dlp metadata fetch (title/description/upload_date, NO download),
 then Haiku extracts year/make/model/mileage IF explicitly stated; null otherwise.
 car_age_years = upload_year - model_year when both known. Normals-search videos
 ("2018 Camry cold start") are the richest source of YMM labels.

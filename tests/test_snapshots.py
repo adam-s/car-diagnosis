@@ -1,4 +1,4 @@
-"""Snapshot regression tests — golden files for deterministic pipeline behavior.
+"""Snapshot regression tests: golden files for deterministic pipeline behavior.
 
 These let us iterate aggressively and catch *behavior drift* instantly: if a
 change alters the cascade's decisions, the label logic, or the fixture-trained

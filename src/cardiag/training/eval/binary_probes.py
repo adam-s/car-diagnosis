@@ -1,6 +1,6 @@
 """Process-of-elimination probes: which yes/no questions can the audio answer?
 
-A mechanic doesn't need the exact part — narrowing the search helps. So instead
+A mechanic doesn't need the exact part; narrowing the search helps. So instead
 of one N-way pick (which dilutes confidence), ask each acoustic super-group as
 an independent binary with calibrated P: can we confidently INCLUDE it ("this
 IS an engine-internal sound") or RULE IT OUT ("this is NOT a brake/squeal

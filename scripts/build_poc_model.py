@@ -1,5 +1,5 @@
 """Build the proof-of-concept shipped model from a CLEAN, CLASS-BALANCED,
-DOMAIN-DIVERSE corpus — the model that demonstrates the method works across
+DOMAIN-DIVERSE corpus, the model that demonstrates the method works across
 domains rather than detecting the recording source.
 
 It combines a high-confidence, balanced slice of the scraped social corpus
@@ -92,7 +92,7 @@ def main() -> None:
 
     # social: YouTube+TikTok ONLY (Reddit dropped), high-confidence, balanced, capped
     # by CLIP. Embedded from RAW AUDIO with the SAME windowing as inference
-    # (window_spans) — a >10s span becomes several <=10s window rows — so the shipped
+    # (window_spans): a >10s span becomes several <=10s window rows, so the shipped
     # model is trained exactly the way it is served (no train/serve skew).
     def resolve(p):
         for c in (f"{a.audio_base}/{p}", f"{a.audio_base}/{p}".replace("/data/clips/", "/clips/")):

@@ -1,7 +1,7 @@
 """FastAPI app: upload a sound clip, get it cleaned and diagnosed locally.
 
 The clip is run through the *same* ``clean()`` cascade as the training corpus,
-then the model — so an uploaded clip is processed exactly like a training clip.
+then the model, so an uploaded clip is processed exactly like a training clip.
 The model is loaded lazily and cached; if no trained model is present the app
 still runs and returns the cleaning result (isolated spans, music flag).
 
@@ -56,7 +56,7 @@ def health() -> dict:
 
 
 def _safe_suffix(filename: str | None) -> str:
-    """A whitelisted, sanitized file suffix — never trust the raw filename
+    """A whitelisted, sanitized file suffix: never trust the raw filename
     (path traversal, NUL bytes, megabyte-long fake extensions)."""
     suffix = Path(filename or "").suffix.lower()
     suffix = "".join(c for c in suffix if c.isalnum() or c == ".")[:8]
@@ -202,7 +202,7 @@ async def diagnose_stream(request: Request, file: UploadFile | None = File(None)
 
 def _saliency_locked(path, model):
     """Run the heavy occlusion saliency holding _LOCK *inside the worker thread*
-    (not across the event-loop await — that would block other requests)."""
+    (not across the event-loop await, which would block other requests)."""
     from cardiag.audio import saliency
     with _LOCK:
         return saliency.occlusion_saliency(path, model)
@@ -211,7 +211,7 @@ def _saliency_locked(path, model):
 @app.post("/api/explain")
 async def explain_why(request: Request, file: UploadFile | None = File(None),
                       audio_id: str | None = Form(None)) -> JSONResponse:
-    """Occlusion-saliency explanation of the fault/normal verdict — *why* the model
+    """Occlusion-saliency explanation of the fault/normal verdict: *why* the model
     decided. Accepts the same clip back (an upload, or a cached ``audio_id`` from a
     pasted-link run) and returns a time×frequency importance map. Heavy (re-embeds
     a grid of masked variants), so it's a deliberate opt-in, serialized by _LOCK."""
@@ -284,7 +284,7 @@ async def diagnose(request: Request, file: UploadFile) -> JSONResponse:
         payload["filename"] = file.filename
         payload["model_loaded"] = True
         return JSONResponse(payload)
-    except (ValueError, FileNotFoundError, OSError):   # never echo e — leaks temp paths
+    except (ValueError, FileNotFoundError, OSError):   # never echo e, leaks temp paths
         return JSONResponse({"error": "could not process audio — is it a valid clip?"},
                             status_code=400)
     finally:

@@ -1,6 +1,6 @@
 """Per-video metadata capture (text only, no media download) for the YouTube
-corpus. The payoff is CHAPTERS — uploader-authored timestamped fault labels
-("Wheel Bearing 378-663s") present on ~40% of our videos — plus timestamped
+corpus. The payoff is CHAPTERS: uploader-authored timestamped fault labels
+("Wheel Bearing 378-663s") present on ~40% of our videos, plus timestamped
 transcripts, full descriptions, tags, and top comments. These join down to the
 clip level (enrich.py) to replace the weak global-title L2 with local labels.
 

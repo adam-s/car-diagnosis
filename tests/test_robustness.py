@@ -1,4 +1,4 @@
-"""Robustness: the public API must handle hostile/degenerate audio gracefully —
+"""Robustness: the public API must handle hostile/degenerate audio gracefully:
 a clean result or a clear error, never an obscure crash. Offline (no CLAP)."""
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def test_clean_silence(tmp_path):
 def test_clean_subsecond(tmp_path):
     y = np.random.default_rng(0).standard_normal(2000).astype(np.float32)
     p = _write(tmp_path, "tiny.wav", y)
-    res = clean(p, music_gate=False)              # 0.04s — must not crash
+    res = clean(p, music_gate=False)              # 0.04s, must not crash
     assert isinstance(res, CleanResult)
 
 

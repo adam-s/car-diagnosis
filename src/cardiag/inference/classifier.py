@@ -1,8 +1,8 @@
-"""``Classifier`` — turn one recording into a structured :class:`Diagnosis`.
+"""``Classifier``: turn one recording into a structured :class:`Diagnosis`.
 
 Loads the clean-teacher heads (trained by ``training/models/train_best.py``)
 over frozen CLAP embeddings: ``kind`` (fault vs normal), ``knock`` (engine knock
-vs normal), and ``cause`` (part family). Honest by design — cause is top-k with
+vs normal), and ``cause`` (part family). Honest by design: cause is top-k with
 probabilities, never a single confident answer (fine cause from audio alone has
 a measured ceiling).
 
@@ -36,13 +36,13 @@ _FAULT_HI, _FAULT_LO = 0.6, 0.4
 def _proba(clf, X, temperature: float = 1.0) -> dict:
     """Mean class probability over every span vector of one recording.
 
-    Pooling happens here, in probability space — each row of ``X`` is a single
+    Pooling happens here, in probability space: each row of ``X`` is a single
     in-distribution span embedding, scored independently, then averaged. We never
     average the embeddings themselves (that would be a vector the head never saw
-    at fit time — the train/serve skew this design avoids).
+    at fit time, the train/serve skew this design avoids).
 
     ``temperature`` (fit at train time, Guo et al. 2017) divides the head's logits
-    before the softmax/sigmoid so a weak head stops being over-confident — the
+    before the softmax/sigmoid so a weak head stops being over-confident: the
     decision is unchanged, only the reported probability. Falls back to plain
     ``predict_proba`` for heads without logits (e.g. a degenerate DummyClassifier)
     or T==1.
@@ -104,14 +104,14 @@ class Classifier:
     def diagnose(self, path, *, clean_audio: bool = True) -> Diagnosis:
         """Diagnose ``path``: clean -> embed -> heads -> :class:`Diagnosis`.
 
-        The clip becomes one vector per isolated span — each embedded exactly as a
-        training clip was (:func:`cardiag.audio.embed.model_vectors`) — and every
+        The clip becomes one vector per isolated span (each embedded exactly as a
+        training clip was, :func:`cardiag.audio.embed.model_vectors`) and every
         head's probabilities are pooled across those spans. Train and serve feed
         the heads the same kind of vector, so there is no train/serve skew.
 
         Honest about degenerate heads: a head trained on a single class (or on a
         placeholder label) carries no information, so we never present its output
-        as a confident verdict/cause — we downgrade to UNCERTAIN and say so.
+        as a confident verdict/cause: we downgrade to UNCERTAIN and say so.
         """
         try:
             ev = model_vectors(path, clean_audio=clean_audio)
@@ -145,7 +145,7 @@ class Classifier:
             kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
             p_knock = float(kn.get("knock", 0.0))
 
-        # --- where in the car (region) — the headline localization, OOS-robust --
+        # --- where in the car (region): the headline localization, OOS-robust --
         # Coarse-to-fine cascade: a knock-sound is one label worn by many causes, so
         # when a knock is likely we SOFT-blend in a region head trained only on knock
         # clips (it localizes knocks better). Soft gating by p_knock, not a hard
@@ -174,7 +174,7 @@ class Classifier:
             notes.append("cause head has too few classes to suggest a part.")
 
         # (engine-knock probability p_knock is computed above, where it gates the
-        # knock-region specialist; it is reported but NOT the headline — the binary
+        # knock-region specialist; it is reported but NOT the headline: the binary
         # knock head did not generalize out-of-sample, 0.99 in-dist -> 0.56 OOS.)
         if res is not None and getattr(res, "is_music", False):
             notes.append("Recording looks like mostly music — diagnosis is unreliable.")

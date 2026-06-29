@@ -1,17 +1,17 @@
 """Calibrate the pipeline's audio-side labeling against verified ground truth.
 
 Runs the EXACT pipeline stack (CLAP model, prompts, gate() thresholds from
-ingest/youtube/{config,audio} + pipeline.py) over external_eval.jsonl — clips with
-trustworthy human labels the pipeline has never seen — and measures:
+ingest/youtube/{config,audio} + pipeline.py) over external_eval.jsonl (clips with
+trustworthy human labels the pipeline has never seen) and measures:
 
-  1. gate behavior     — these are all real car sounds, so reject/review rates
+  1. gate behavior     : these are all real car sounds, so reject/review rates
                          are a direct false-discard estimate for the scrape
-  2. fault vs normal   — can the audio side separate them, and at what threshold
-  3. l1 plausibility   — does the predicted sound type match the sound family
+  2. fault vs normal   : can the audio side separate them, and at what threshold
+  3. l1 plausibility   : does the predicted sound type match the sound family
                          the verified cause should make (brakes->squeal/grind…)
-  4. zero-shot cause   — audio-only cause ceiling (we expect this to be weak;
-                         that's WHY cause comes from text — here we measure it)
-  5. confidence calibration — is l1_conf actually monotone in correctness
+  4. zero-shot cause   : audio-only cause ceiling (we expect this to be weak;
+                         that's WHY cause comes from text; here we measure it)
+  5. confidence calibration : is l1_conf actually monotone in correctness
 
 Usage (from repo root; scoring ~minutes on MPS, cached after first run):
     uv run training/eval/calibrate.py            # score + analyze
@@ -39,7 +39,7 @@ REPORT = OUT / "calibration.json"
 
 # Zero-shot cause probe over the verified car-diagnostics classes. This is
 # the experiment the pipeline deliberately does NOT do (cause comes from
-# text) — calibration measures what audio alone buys.
+# text): calibration measures what audio alone buys.
 CAUSE_PROMPTS = {
     "brakes": "worn brake pads squealing or grinding on a car",
     "belt": "a loose serpentine belt squealing in a car engine",

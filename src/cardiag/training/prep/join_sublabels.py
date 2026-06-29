@@ -1,8 +1,8 @@
 """Join text-mined faults down to clip-level SUB-LABELS.
 
-YouTube: by TIMESTAMP (clip [start,end] overlaps a mined fault's time_range) —
+YouTube: by TIMESTAMP (clip [start,end] overlaps a mined fault's time_range),
 so a compilation video's clips each inherit the correct specific part.
-TikTok: VIDEO-LEVEL (short single-fault clips; faults have no timestamps) — all
+TikTok: VIDEO-LEVEL (short single-fault clips; faults have no timestamps): all
 clips of a video get its single named part.
 
 Output (data/training/corpus_textmined_labels.jsonl), one row per matched clip:

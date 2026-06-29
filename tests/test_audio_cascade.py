@@ -1,6 +1,6 @@
 """Integration tests for the cleaning cascade and clean() on synthetic audio.
 
-These run the real Silero VAD + librosa cascade (no network, no CLAP) — they
+These run the real Silero VAD + librosa cascade (no network, no CLAP); they
 prove the isolation logic on signals with a known shape.
 """
 from __future__ import annotations

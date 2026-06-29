@@ -1,11 +1,11 @@
 """Mine the FULL video text (description + chapters + transcript + comments)
-with Haiku to recover SPECIFIC, timestamped fault labels — the signal the
+with Haiku to recover SPECIFIC, timestamped fault labels: the signal the
 per-clip fusion threw away.
 
-Why this is the right lever: the iteration research (docs/iteration-research.md)
+Why this is the right approach: the iteration research (docs/iteration-research.md)
 found label quality, not the feature space, is the bottleneck. The corpus
 already holds full transcripts (1,116 files), chapters (uploader-authored
-timestamped fault labels, 34% of videos), and long descriptions — but fusion.py
+timestamped fault labels, 34% of videos), and long descriptions, but fusion.py
 only saw a per-clip transcript SLICE + one comment. A mechanic naming "that's a
 rod knock, you're low on oil" anywhere in the video was invisible to it.
 
@@ -168,7 +168,7 @@ def knock_videos(limit):
 
 
 def fault_videos(limit):
-    """All videos that contributed >=1 fault clip — the full sub-label harvest.
+    """All videos that contributed >=1 fault clip: the full sub-label harvest.
     Ordered by fault-clip count so the richest videos mine first."""
     cnt = {}
     for l in open(paths.YT_DATA / "corpus.enriched.tiered.jsonl"):
@@ -180,7 +180,7 @@ def fault_videos(limit):
 
 def worklist_fault_videos(limit):
     """Newly-scraped fault videos (from the worklist) with meta captured but
-    not yet in the enriched corpus — the overnight-scrape mining target."""
+    not yet in the enriched corpus: the overnight-scrape mining target."""
     wl = paths.YT_DATA / "worklist.json"
     if not wl.exists():
         return []
@@ -219,7 +219,7 @@ def main():
     caf = open(CACHE, "a")
     ok = 0
     if BACKEND == "modal":
-        # one GPU batch through Modal (vLLM) — far faster than streaming
+        # one GPU batch through Modal (vLLM), far faster than streaming
         from cardiag.pipeline.llm import run_batch
         items = [(v, build_prompt(v)) for v in vids]
         items = [(v, p) for v, p in items if p]

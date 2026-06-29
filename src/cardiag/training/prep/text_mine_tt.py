@@ -2,7 +2,7 @@
 
 TikTok clips carry the SEARCH QUERY that found them ("bad wheel bearing sound"),
 the caption (desc), and overlay OCR. Videos are short and usually a single
-fault, so Haiku extracts one (or few) specific part(s) per video — adding
+fault, so Haiku extracts one (or few) specific part(s) per video, adding
 distinct videos to the sub-label pool, which is the binding constraint for the
 fine sub-type CV.
 

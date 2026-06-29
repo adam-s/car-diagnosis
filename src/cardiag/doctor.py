@@ -1,4 +1,4 @@
-"""``cardiag doctor`` — preflight checks with fix-it instructions.
+"""``cardiag doctor``: preflight checks with fix-it instructions.
 
 A novice should never meet a raw stack trace. This probes everything the pipeline
 needs (Python, ffmpeg, yt-dlp, CLAP weights, Camoufox + its Firefox, the core ML

@@ -1,4 +1,4 @@
-"""Occlusion saliency — *why* did the model say that?
+"""Occlusion saliency: *why* did the model say that?
 
 A rigorous, model-agnostic explanation (occlusion sensitivity, à la Zeiler &
 Fergus 2014 / RISE) for the audio diagnosis: systematically mask a grid of
@@ -10,7 +10,7 @@ already shows, plus a one-sentence headline ("masking 1.2–1.8s, 200–800 Hz c
 fault probability by −0.42").
 
 This is honest by construction: it perturbs the *real* model and reports the real
-effect — no surrogate, no hand-wavy attention.
+effect: no surrogate, no hand-wavy attention.
 """
 from __future__ import annotations
 

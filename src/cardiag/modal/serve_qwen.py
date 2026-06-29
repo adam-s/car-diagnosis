@@ -37,10 +37,10 @@ app = modal.App("mech-qwen-serve")
 
 @modal.concurrent(max_inputs=8)
 # web_server only routes traffic once the port is live, so vLLM fully loads
-# (the warmup) before any request is served — up to startup_timeout.
+# (the warmup) before any request is served, up to startup_timeout.
 @modal.web_server(port=8000, startup_timeout=10 * 60)
 def serve():
-    # tool-calling MUST be on — Pydantic AI's structured output rides on tool calls
+    # tool-calling MUST be on: Pydantic AI's structured output rides on tool calls
     subprocess.Popen(
         f"vllm serve {MODEL} --host 0.0.0.0 --port 8000 --max-model-len 8192 "
         "--enable-auto-tool-choice --tool-call-parser hermes",

@@ -1,10 +1,10 @@
-"""One swappable LLM interface for the whole pipeline — Modal / Ollama / Haiku.
+"""One swappable LLM interface for the whole pipeline: Modal / Ollama / Haiku.
 
 The cost lesson: per-call Haiku adds up at scale. This routes batch LLM work to
 the cheapest adequate backend:
-  ollama  — local Qwen on this Mac, $0 (default; contends with CLAP, slower)
-  modal   — Qwen2.5 on a Modal GPU via vLLM, cents/run (fast, set-and-forget)
-  claude  — Haiku via `claude -p` (fallback / highest quality)
+  ollama  : local Qwen on this Mac, $0 (default; contends with CLAP, slower)
+  modal   : Qwen2.5 on a Modal GPU via vLLM, cents/run (fast, set-and-forget)
+  claude  : Haiku via `claude -p` (fallback / highest quality)
 
     from cardiag.pipeline.llm import run_batch
     results = run_batch([("id1","prompt1"), ...], backend="modal")

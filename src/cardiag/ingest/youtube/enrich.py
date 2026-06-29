@@ -2,7 +2,7 @@
 
 For every clip in corpus.jsonl, attach from its video's data/meta/<id>/:
   - chapter_label   : title of the chapter containing the clip midpoint
-                      (uploader-authored, timestamped fault label — near GT)
+                      (uploader-authored, timestamped fault label, near GT)
   - clip_transcript : caption cues overlapping the clip window (local narration)
   - l2_local        : fault category from chapter_label + clip_transcript,
                       REPLACING the weak global-title l2_candidates

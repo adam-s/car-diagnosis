@@ -42,7 +42,7 @@ EXTERNAL = DATA / "external"
 MODEL_CLAP = TRAIN_DATA / "best_model_clap.joblib"   # kind / knock / cause heads
 MODEL_TRIAGE = TRAIN_DATA / "triage_model.joblib"    # engine vs running-gear
 
-# A tiny synthetic demo clip (a generated engine knock — no copyright) so a fresh
+# A tiny synthetic demo clip (a generated engine knock, no copyright) so a fresh
 # clone can `diagnose` something without scraping anything.
 DEMO_CLIP = _PKG / "_fixtures" / "demo.wav"
 

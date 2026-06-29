@@ -1,4 +1,4 @@
-"""CLAP wrapper — the one expensive tier.
+"""CLAP wrapper: the one expensive tier.
 
 CLAP (``laion/clap-htsat-unfused``) gives a 512-d audio embedding and zero-shot
 text-vs-audio scoring. Loaded once and reused; runs on Apple MPS when available,

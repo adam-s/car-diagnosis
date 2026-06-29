@@ -106,8 +106,8 @@ flowchart TD
 ```
 
 This identical cascade runs in **two places**: building the training corpus, and
-cleaning a user-uploaded clip at inference. That symmetry is what keeps inference
-matched to training.
+cleaning a user-uploaded clip at inference. That symmetry keeps inference matched to
+training.
 
 ---
 
@@ -131,7 +131,7 @@ flowchart LR
     SILVER --> KEEP
 ```
 
-Rule encoded in `fusion.py`: confidence ≥ 0.7 **requires** corroborating text;
+Rule encoded in `fusion.py`: confidence ≥ 0.7 **requires** corroborating text, and
 sound-type alone caps at 0.45. Trust is multi-signal agreement, not model
 self-confidence.
 
@@ -177,8 +177,8 @@ flowchart TD
 ```
 
 The CLI and the web app are thin shells. Both call the **same** `clean()` then the
-**same** `predict()`. Adding a new front-end (or an API) means writing a shell that
-calls `predict()` — never re-implementing cleaning or inference.
+same `predict()`. Adding a new front-end (or an API) means writing a shell that
+calls `predict()`, never re-implementing cleaning or inference.
 
 ---
 

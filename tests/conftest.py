@@ -10,7 +10,7 @@ SR = 48_000
 
 
 def _tone_burst(freq=220.0, sr=SR, total_s=4.0, on=(1.0, 2.5)):
-    """A sine burst surrounded by near-silence — a clean cascade target."""
+    """A sine burst surrounded by near-silence: a clean cascade target."""
     t = np.linspace(0, total_s, int(sr * total_s), endpoint=False)
     y = 0.001 * np.random.default_rng(0).standard_normal(len(t))  # quiet floor
     s, e = int(on[0] * sr), int(on[1] * sr)

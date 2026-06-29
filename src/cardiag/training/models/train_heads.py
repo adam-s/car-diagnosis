@@ -1,17 +1,17 @@
-"""Train linear heads on frozen CLAP embeddings — the first trained model.
+"""Train linear heads on frozen CLAP embeddings: the first trained model.
 
 What's honest about each head (inference is audio-only; labels are weak):
-  cause — the REAL test. Labels came from text, features from audio, so this
+  cause : the REAL test. Labels came from text, features from audio, so this
           measures whether audio embeddings carry cause signal at all. The
           number to beat: zero-shot CLAP got 45.7% vs 42.4% baseline on
           verified external labels.
-  kind  — fault/normal/nonauto. Mostly text-backed labels; useful for the app.
-  l1    — scrape labels ARE CLAP outputs, so training on them with CLAP
+  kind  : fault/normal/nonauto. Mostly text-backed labels; useful for the app.
+  l1    : scrape labels ARE CLAP outputs, so training on them with CLAP
           features is distillation; its only honest eval is the verified
           Car-Engine sound types (where zero-shot knock recall was 0%).
 
 Tier ablation on the cause head (gold vs gold+silver vs +bronze) tells us
-whether the weak tiers help or poison — cheap with linear heads.
+whether the weak tiers help or poison; cheap with linear heads.
 
 Usage (after embed.py):
     uv run training/models/train_heads.py
@@ -49,7 +49,7 @@ def xy(rows, emb, label_fn):
 
 def fit(X, y, class_weight=None):
     # default (unbalanced) answers "beats majority baseline?"; balanced
-    # answers "recalls rare faults?" — report both, they trade off.
+    # answers "recalls rare faults?"; report both, they trade off.
     return LogisticRegression(max_iter=3000, class_weight=class_weight,
                               C=1.0).fit(X, y)
 
@@ -143,7 +143,7 @@ def main():
     }
     # verified fault-vs-normal on external (zero-shot pipeline rule: 0.712).
     # external is ~50/50, so the majority-biased default under-performs the
-    # balanced head here — report both.
+    # balanced head here; report both.
     ext_fn = [r for r in ext if r["kind"] in ("fault", "normal")]
     Xe = np.array([emb[r["id"]] for r in ext_fn])
     ye = [r["kind"] for r in ext_fn]

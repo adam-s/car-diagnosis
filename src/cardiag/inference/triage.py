@@ -1,11 +1,11 @@
-"""``TriageClassifier`` — the honest headline product.
+"""``TriageClassifier``: the honest headline product.
 
 Audio reliably separates exactly one distinction: **engine-internal** noise vs
 **running-gear** (wheel / suspension / driveline) noise. This returns that call
 plus a *calibrated* probability and a HIGH / MEDIUM / LOW / ABSTAIN band, so a
 human knows when to trust it (validated held-out: cov@p80 1.0, cov@p90 0.82).
 
-It deliberately does NOT name the exact part — audio can't, and the model stays
+It deliberately does NOT name the exact part: audio can't, and the model stays
 honest by abstaining instead of guessing.
 """
 from __future__ import annotations
@@ -85,7 +85,7 @@ class TriageClassifier:
                 band_gloss="triage model is degenerate — not a real call",
                 probabilities={}, next_step="")
         # one vector per isolated span (same embedding as training), pooled in
-        # probability space — no train/serve skew. See cardiag.audio.embed.
+        # probability space: no train/serve skew. See cardiag.audio.embed.
         X = model_vectors(path).vectors
         T = self.temperature
         if T and T != 1.0 and hasattr(self.model, "decision_function"):

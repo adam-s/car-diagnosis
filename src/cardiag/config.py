@@ -3,7 +3,7 @@ search queries, and the cause taxonomy.
 
 Every value here encodes a lesson measured while building the original corpus
 (see ``docs/``); change with care. These constants were previously
-duplicated in per-platform ``config.py`` files — they are identical across
+duplicated in per-platform ``config.py`` files; they are identical across
 platforms and now live here once.
 """
 from __future__ import annotations

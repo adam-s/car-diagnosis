@@ -1,10 +1,10 @@
-"""``cardiag`` command-line interface — a thin shell over the public API.
+"""``cardiag`` command-line interface: a thin shell over the public API.
 
     cardiag diagnose clip.wav            # full model: verdict + knock + causes
     cardiag triage   clip.wav            # calibrated engine-vs-running-gear
     cardiag clean    clip.wav            # isolate mechanical sound (no model)
     cardiag serve                        # local web upload app
-    cardiag scrape   youtube|tiktok      # (reddit deprecated — too noisy)
+    cardiag scrape   youtube|tiktok      # (reddit deprecated, too noisy)
     cardiag train
 
 Every command imports its heavy dependencies lazily, so `cardiag --help` and the
@@ -28,7 +28,7 @@ app = typer.Typer(
 
 
 def _nudge(*lines: str) -> None:
-    """Print a subtle 'what next' hint — the gentle hand-off to the next step.
+    """Print a subtle 'what next' hint: the gentle hand-off to the next step.
 
     Goes to stderr so it never pollutes machine-readable stdout (e.g. `--json`)."""
     from rich.console import Console
@@ -40,7 +40,7 @@ def _nudge(*lines: str) -> None:
 @contextmanager
 def _friendly_errors():
     """Turn expected failures (missing/unreadable audio, missing/invalid model)
-    into a clean one-line message + exit code 1 — never a scary traceback."""
+    into a clean one-line message + exit code 1, never a scary traceback."""
     from rich.console import Console
     try:
         yield
@@ -280,8 +280,8 @@ def ingest(
     source: str = typer.Option("local", help="Corpus bucket name (data/<source>/)."),
 ):
     """Bring your own audio. Segment a folder of recordings (ANY length) through the
-    SAME cascade as scraping — long recordings become multiple short mechanical
-    spans — and add them to the corpus, ready for `cardiag train`. One coherent
+    SAME cascade as scraping (long recordings become multiple short mechanical
+    spans) and add them to the corpus, ready for `cardiag train`. One coherent
     path: your clips are processed identically to scraped clips and to inference."""
     if kind not in ("fault", "normal"):
         raise typer.BadParameter("kind must be 'fault' or 'normal'")

@@ -1,4 +1,4 @@
-"""Batch LLM inference on Modal — Qwen2.5 on a GPU via vLLM.
+"""Batch LLM inference on Modal: Qwen2.5 on a GPU via vLLM.
 
 Image/version pinning copied from the proven goblins setup
 (~/Projects/goblins/.../infra/modal/qwen_grader.py): vLLM 0.11.0 + transformers
@@ -15,7 +15,7 @@ import json
 
 import modal
 
-# 14B for label quality — fits comfortably on the L40S (48GB); label quality is
+# 14B for label quality: fits comfortably on the L40S (48GB); label quality is
 # this project's binding constraint, and 14B is sharper than 7B on the extraction.
 MODEL = "Qwen/Qwen2.5-14B-Instruct"
 MAX_TOKENS = 768

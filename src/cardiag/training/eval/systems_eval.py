@@ -1,4 +1,4 @@
-"""Per-SYSTEM accuracy with confidence — the honest multi-class picture.
+"""Per-SYSTEM accuracy with confidence: the honest multi-class picture.
 
 The region work collapsed everything to engine-vs-chassis. This measures the
 actual systems a user cares about (brakes, steering, suspension, driveline/

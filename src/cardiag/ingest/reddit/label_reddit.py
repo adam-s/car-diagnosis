@@ -1,8 +1,8 @@
-"""Extract the canonical fault diagnosis from each Reddit post — batched on Modal.
+"""Extract the canonical fault diagnosis from each Reddit post, batched on Modal.
 
 The post title + OP description + top community comments ARE the diagnosis
 (crowd-sourced). This turns that free text into a structured label. Runs the
-batch on Modal Qwen (or --backend ollama for local/free) — no per-call Haiku.
+batch on Modal Qwen (or --backend ollama for local/free): no per-call Haiku.
 
     python -m cardiag.ingest.reddit.label_reddit --backend modal
     python -m cardiag.ingest.reddit.label_reddit --backend ollama   # local, free

@@ -1,4 +1,4 @@
-"""The cheap cleaning cascade — CPU, ~free, 80-200x realtime.
+"""The cheap cleaning cascade: CPU, ~free, 80-200x realtime.
 
 It discards silence, speech, and broadband static so the expensive CLAP tier
 only ever sees the few surviving percent of audio. Measured bake-off: webrtcvad
@@ -32,7 +32,7 @@ def _vad():
 def candidate_regions(y16, sr: int = config.SR_CHEAP, return_speech_frac: bool = False):
     """Cheap tiers 0-2: loud, non-speech, non-static spans, as ``(start, end)``
     seconds. With ``return_speech_frac`` also returns the clip-level speech
-    fraction — a shop-context prior (talky repair video vs clean compilation)."""
+    fraction, a shop-context prior (talky repair video vs clean compilation)."""
     from silero_vad import get_speech_timestamps
     speech = get_speech_timestamps(torch.from_numpy(y16), _vad(),
                                    sampling_rate=sr, return_seconds=True)

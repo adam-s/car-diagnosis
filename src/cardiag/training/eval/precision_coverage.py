@@ -1,12 +1,12 @@
-"""Precision @ coverage — the achievable form of the 99% goal.
+"""Precision @ coverage: the achievable form of the 99% goal.
 
 "99% accuracy on every clip from audio" is not physically reachable. "99%
-PRECISION on the confident subset, abstaining otherwise" is — and it's how
+PRECISION on the confident subset, abstaining otherwise" is, and it's how
 triage should work. This collects out-of-fold (video-grouped) predictions with
 calibrated confidence, then sweeps an abstention threshold: accept a prediction
 only when confidence >= t, and report precision (accuracy among accepted) vs
 coverage (fraction accepted). The headline is COVERAGE AT 0.90 / 0.95 / 0.99
-PRECISION — how much of the time we can confidently name the part.
+PRECISION: how much of the time we can confidently name the part.
 
 Calibration: confidences are isotonic-calibrated within CV (CalibratedClassifierCV)
 so the threshold means what it says.

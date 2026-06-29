@@ -326,6 +326,9 @@ const WF={uid:0};
 function initWF(peaks,duration){
   DUR=duration||1; const svg=d3.select("#wf"); svg.selectAll("*").remove();
   const W=svg.node().clientWidth||900, H=120, m={t:6,b:6};
+  // draw in a fixed coordinate space and let the SVG scale to the container, so the
+  // waveform + overlays survive a window resize without re-rendering
+  svg.attr("viewBox",`0 0 ${W} ${H}`).attr("preserveAspectRatio","none");
   // auto-gain: scale the envelope so the loudest peak fills the card
   let amp=0; peaks.forEach(d=>amp=Math.max(amp,Math.abs(d[0]),Math.abs(d[1])));
   const g=0.97/Math.max(amp,0.04);
@@ -341,6 +344,7 @@ function initWF(peaks,duration){
     .attr("stroke-width",1.5).attr("opacity",0);
   // shared time axis lives in #taxis so the spectrogram aligns under the waveform
   const ax=d3.select("#taxis"); ax.selectAll("*").remove();
+  ax.attr("viewBox",`0 0 ${W} 20`).attr("preserveAspectRatio","none");
   ax.append("g").attr("class","wf-axis").call(d3.axisBottom(x).ticks(7).tickSize(4).tickFormat(d=>d+"s"));
 }
 function sweep(){ if(!WF.scan)return;
@@ -580,8 +584,8 @@ function spansFor(m){
 const inSpan=(t,sp)=>sp.find(([s,e])=>t>=s&&t<e);
 const nextSpan=(t,sp)=>sp.find(([s])=>s>t+1e-3);
 function positionHead(t){
-  const W=$("#wf").clientWidth||1;
-  const h=$("#head"); h.style.display="block"; h.style.left=(t/AUDIO.dur*W)+"px";
+  // percent of the panel width -> survives a window resize (no px baked in)
+  const h=$("#head"); h.style.display="block"; h.style.left=(t/AUDIO.dur*100)+"%";
 }
 function tick(){
   if(player.paused)return;
@@ -628,7 +632,7 @@ $("#panel").addEventListener("mousemove",e=>{
   if(!AUDIO.hasAudio)return;
   const wf=$("#wf"), r=wf.getBoundingClientRect(), x=e.clientX-r.left;
   const t=Math.max(0,Math.min(AUDIO.dur,x/wf.clientWidth*AUDIO.dur));
-  const hl=$("#hoverline"); hl.style.display="block"; hl.style.left=x+"px";
+  const hl=$("#hoverline"); hl.style.display="block"; hl.style.left=(t/AUDIO.dur*100)+"%";
   $("#hovertime").textContent=fmt(t);
 });
 $("#panel").addEventListener("mouseleave",()=>{ $("#hoverline").style.display="none"; });

@@ -687,16 +687,25 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
             f"(try a larger --per-query / --max-videos).")
 
     print(f"embedding {len(rows)} clips with CLAP…", flush=True)
-    # A corpus clip is already one isolated span, so it becomes one vector via the
-    # SAME embed_clip() inference uses per span — train/serve share the contract.
-    from cardiag.audio.embed import embed_clip
+    # Each corpus clip is an isolated span, embedded via the SAME embed_clip()
+    # inference uses — train/serve share the contract. A span longer than the CLAP
+    # window is split into <=10 s windows (window_spans, kept per the A/B test): each
+    # window becomes its own training row with the SAME label and video group, so
+    # windows of one clip never split across a CV fold (no leakage). Inference pools
+    # the matching per-window vectors in probability space.
+    from cardiag.audio.embed import embed_clip, window_spans
     embed: dict[str, np.ndarray] = {}
+    expanded: list[dict] = []
     for r in _progress(rows, "embedding clips"):
         y, _ = librosa.load(r["wav"], sr=config.SR_CLAP, mono=True)
         if len(y) < config.SR_CLAP // 2:
             continue
-        embed[r["clip_id"]] = embed_clip(y)
-    return _train_heads(rows, embed, min_class, _cause_of, prune_noisy)
+        wins = window_spans(y)
+        for k, w in enumerate(wins):
+            cid = r["clip_id"] if len(wins) == 1 else f'{r["clip_id"]}#w{k}'
+            embed[cid] = embed_clip(w)
+            expanded.append({**r, "clip_id": cid})
+    return _train_heads(expanded, embed, min_class, _cause_of, prune_noisy)
 
 
 FIXTURES = Path(__file__).resolve().parent.parent / "_fixtures"

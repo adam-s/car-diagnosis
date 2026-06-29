@@ -36,13 +36,42 @@ from cardiag import config
 from cardiag.audio.clap import Clap
 from cardiag.audio.clean import clean
 
+#: CLAP's effective input length. The HTSAT feature extractor truncates anything
+#: longer to its first ~10 s, so a 50 s span would be embedded from only its first
+#: 10 s — which may be the wrong part of the recording.
+WINDOW_S = 10.0
+
+
+def window_spans(y: np.ndarray, sr: int = config.SR_CLAP,
+                 win_s: float = WINDOW_S) -> list[np.ndarray]:
+    """Split one span into <=win_s windows so CLAP never silently truncates a long
+    span to its first 10 s. Each window is embedded as its own sample and pooled
+    in probability space (train) / averaged over (serve), exactly like multiple
+    isolated spans.
+
+    KEEP THIS — decided after an A/B test on 8,365 YouTube+TikTok clips (re-embed,
+    by-video grouped CV; see docs/DEFENSE.md). On clips >10 s, pooling all <=10 s
+    windows recovered **+0.022 AUROC** (0.792 -> 0.814) vs truncating to the first
+    10 s; ~0 change overall (long clips are 13% of the corpus). Crucially, fancier
+    variants did NOT beat a plain uniform mean: energy-weighting the loud "good
+    parts" and best-window selection both tied or lost. So we window uniformly and
+    pool every window — simplest thing that captured the available gain.
+    """
+    w = int(win_s * sr)
+    mn = sr                                          # drop a <1 s trailing sliver
+    if len(y) <= w:
+        return [y]
+    return [y[s:s + w] for s in range(0, len(y), w) if len(y[s:s + w]) >= mn]
+
 
 def embed_clip(y: np.ndarray, sr: int = config.SR_CLAP) -> np.ndarray:
     """One audio span -> one L2-normalized CLAP vector.
 
     The atomic unit of the whole system: training embeds each corpus clip with
     this, and inference embeds each isolated span with this. Same function, same
-    distribution — no skew possible.
+    distribution — no skew possible. Spans longer than :data:`WINDOW_S` should be
+    passed through :func:`window_spans` first (both train and serve do) so CLAP
+    sees the whole recording, not just its first 10 s.
     """
     return Clap().embed([y], sr=sr)[0]
 
@@ -118,7 +147,11 @@ def model_vectors(path, *, clean_audio: bool = True,
     if clean_audio:
         res = clean(path)
         if res.isolated:
-            X = embed_clips(res.isolated, sr=res.sr)
+            # split any >10 s span into <=10 s windows before embedding (kept per the
+            # A/B test in window_spans) — each window is one pooled sample, so a long
+            # span contributes its whole length, not just its first 10 s.
+            spans = [w for span in res.isolated for w in window_spans(span, res.sr)]
+            X = embed_clips(spans, sr=res.sr)
             return EmbedResult(X, res.segments, res, "isolated")
         # cascade isolated nothing — diagnose the whole clip, keep res for notes
         return EmbedResult(_window_vectors(path, win_s), res.segments, res, "windows")

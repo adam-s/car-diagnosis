@@ -26,13 +26,12 @@ All notable changes to this project are documented here. Format loosely follows
   front end uses D3 from a CDN and no build step (clone-and-run preserved).
 
 ### Added (measurement & calibration)
-- **Rigorous, committed eval harness** (`python -m cardiag.training.eval.scorecard`
-  → `docs/SCORECARD.md`): by-video `StratifiedGroupKFold` (5×5, leakage-asserted),
-  imbalance-aware metrics (balAcc/macroF1/MCC/AUROC/AUPRC), ECE, a by-video
-  label-permutation null, top-k accuracy for ranked-shortlist heads, a
-  Nadeau–Bengio corrected-t test for comparing versions, and a source-confound
-  probe. Methodology + citations in `docs/research/eval-methodology.md`; per-head
-  `docs/MODEL_CARD.md`.
+- **Rigorous eval harness** (`python -m cardiag.training.eval.scorecard`): by-video
+  `StratifiedGroupKFold` (5×5, leakage-asserted), imbalance-aware metrics
+  (balAcc/macroF1/MCC/AUROC/AUPRC), ECE, a by-video label-permutation null, top-k
+  accuracy for ranked-shortlist heads, a Nadeau–Bengio corrected-t test, and a
+  source-confound probe. Results and methodology in `docs/MODEL_CARD.md` and
+  `docs/DEFENSE.md`.
 - **What it measured:** `knock` AUROC 0.99 (strong); `kind`/`triage` AUROC
   0.70/0.72 (real — permutation p=0.035 — but modest, at the literature ceiling);
   `cause` **top-3 = 0.69** (the true part is in the shown shortlist 69% of the

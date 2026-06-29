@@ -51,7 +51,7 @@ Verify the whole thing end-to-end in an isolated worktree: `bash scripts/clone_v
 
 ## How it works
 
-```
+```text
 audio ──► clean() cascade ──► CLAP embedding ──► linear heads ──► Diagnosis
           (isolate spans)     (frozen, 512-d)    (fault/region/    (calibrated,
                                                   part/knock)       UNCERTAIN-aware)
@@ -82,7 +82,6 @@ Add `--json` to any inference command for machine-readable output.
 - [docs/DEFENSE.md](docs/DEFENSE.md) — the honest case that a deliberately crude method earns a real triage result.
 - [docs/MODEL_CARD.md](docs/MODEL_CARD.md) — per-head metrics, intended use, limitations.
 - [docs/architecture.md](docs/architecture.md) — pipeline diagrams.
-- [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) — a guided first run.
 - [docs/scraping-guide.md](docs/scraping-guide.md) — start-to-finish corpus building.
 
 ## Scope & honesty

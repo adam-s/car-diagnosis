@@ -4,7 +4,7 @@
     cardiag triage   clip.wav            # calibrated engine-vs-running-gear
     cardiag clean    clip.wav            # isolate mechanical sound (no model)
     cardiag serve                        # local web upload app
-    cardiag scrape   youtube|tiktok|reddit
+    cardiag scrape   youtube|tiktok      # (reddit deprecated — too noisy)
     cardiag train
 
 Every command imports its heavy dependencies lazily, so `cardiag --help` and the
@@ -237,7 +237,7 @@ def scrape(
         False, "--normal",
         help="(tiktok) scrape HEALTHY-engine clips labeled 'normal' instead of "
              "fault — run this AND the default fault pass to give train both "
-             "classes and break the source confound (docs/SCORECARD.md)."),
+             "classes and break the source confound (docs/MODEL_CARD.md)."),
 ):
     """Discover, download, and clean sound clips into a labeled corpus.
 
@@ -302,7 +302,7 @@ def train(
         0.0, "--prune-noisy", min=0.0, max=0.5,
         help="Confident-learning label cleaning: drop this fraction (e.g. 0.15) of "
              "the likely-mislabeled clips per source before fitting. Measured "
-             "~+0.05 balanced accuracy on the fault/triage heads (docs/RESULTS.md)."),
+             "~+0.05 balanced accuracy on the fault/triage heads (docs/MODEL_CARD.md)."),
 ):
     """Embed the scraped corpus with CLAP and train the fault/knock/cause +
     triage models into data/training/. Use --fixtures to train instantly offline

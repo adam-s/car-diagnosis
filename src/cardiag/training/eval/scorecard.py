@@ -2,7 +2,7 @@
 this change actually help?"
 
 Implements the evaluation protocol from the literature (see
-docs/research/eval-methodology.md):
+docs/DEFENSE.md):
 
   * **By-video grouping** so clips from one recording never straddle train/test
     (Kaufman 2012 leakage; Roberts 2021). `StratifiedGroupKFold` keeps the 74%

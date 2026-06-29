@@ -145,7 +145,13 @@ TikTok uniquely valuable:
 5. A clip is **gold** only when the OCR'd part and the CLAP sound type are
    consistent — two independent modalities agreeing.
 
-## 3. Reddit — `old.reddit.com` HTML + `yt-dlp`, no browser needed
+## 3. Reddit — DEPRECATED as a training source
+
+> **Deprecated.** Reddit posts are long, uncurated, and off-target, which adds
+> label noise without improving accuracy — dropping Reddit slightly *raised* the
+> headline number. Train on YouTube+TikTok instead; the cleaning cascade handles
+> messy input at inference time. The code below still works (`cardiag scrape reddit`
+> warns and proceeds) but is not part of the recommended loop.
 
 Reddit's `.json` API 403s under load, but the old HTML site stays open and
 auth-light. Extraction is deterministic regex; the only authenticated step is

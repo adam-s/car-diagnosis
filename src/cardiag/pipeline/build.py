@@ -285,7 +285,7 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault")
 
     ``kind="fault"`` (default) uses the problem queries; ``kind="normal"`` uses the
     healthy-engine queries — scrape both to give `cardiag train` fault AND normal
-    clips from TikTok, which breaks the recording-source confound (docs/SCORECARD.md).
+    clips from TikTok, which breaks the recording-source confound (docs/MODEL_CARD.md).
 
     Needs the stealth browser: `pip install -e .[scrape]` then
     `python -m camoufox fetch`. TikTok anti-bot may block headless runs.
@@ -482,7 +482,7 @@ def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
                n_splits: int = 5, repeats: int = 5) -> dict:
     """Honest by-video performance: repeated StratifiedGroupKFold balanced accuracy
     (mean±std), not a single arbitrary split. Balanced accuracy because the corpus
-    is class-skewed (raw accuracy vs majority misleads — see docs/SCORECARD.md).
+    is class-skewed (raw accuracy vs majority misleads — see docs/MODEL_CARD.md).
     With ``prune_frac`` the confident-learning prune is applied WITHIN each train
     fold only (test stays untouched), so the estimate reflects the shipped pipeline."""
     from sklearn.metrics import balanced_accuracy_score
@@ -682,7 +682,7 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
     ``prune_noisy`` (0..1) enables confident-learning label pruning: drop that
     fraction of the lowest-self-confidence (likely-mislabeled) clips per source
     before fitting. Measured ~+0.05 balanced accuracy on the fault/triage heads on
-    the reference corpus (see docs/RESULTS.md); 0.15 is a reasonable value."""
+    the reference corpus (see docs/MODEL_CARD.md); 0.15 is a reasonable value."""
     import librosa
 
     rows = load_corpus()

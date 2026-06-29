@@ -2,7 +2,7 @@
 search queries, and the cause taxonomy.
 
 Every value here encodes a lesson measured while building the original corpus
-(see ``docs/research/``); change with care. These constants were previously
+(see ``docs/``); change with care. These constants were previously
 duplicated in per-platform ``config.py`` files — they are identical across
 platforms and now live here once.
 """

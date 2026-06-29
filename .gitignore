@@ -2,11 +2,6 @@
 # caches, models, external reference datasets). Only code + docs are tracked.
 data/
 
-# Live-proof artifacts (kept out of git; summarized in docs/PROOFS.md)
-proofs/*.wav
-proofs/*.npz
-proofs/_work/
-
 # Python
 __pycache__/
 *.pyc

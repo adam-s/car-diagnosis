@@ -417,13 +417,6 @@ def _triage_of(row: dict):
     return None
 
 
-def _region_of(row: dict):
-    """The 'where in the car' zone (6-way) for a fault clip, from its cause family."""
-    if row.get("kind") != "fault":
-        return None
-    return _CAUSE_TO_REGION.get(_cause_of(row))
-
-
 # ===================================================================== train
 def _new_head():
     from sklearn.linear_model import LogisticRegression

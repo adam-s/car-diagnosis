@@ -1,7 +1,0 @@
-### TikTok discovery via Camoufox (stealth Firefox) — 13:05
-  bad wheel bearing sound            + 12 (total 13)
-  engine rod knock sound             + 24 (total 37)
-  serpentine belt squeal             + 24 (total 61)
-+61 new videos -> /private/tmp/claude-501/-Users-adamsohn-Projects-car-diagnosis/3c9ee32b-a022-44ba-9830-4c91622f2921/scratchpad/tt_camoufox2/tiktok/worklist.jsonl
-
-RESULT: 61 videos discovered via Camoufox in 26s

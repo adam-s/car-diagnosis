@@ -1,25 +1,0 @@
-showcase: 270 clips across platforms; loading model + CLAP…
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Loading weights:   0%|          | 0/447 [00:00<?, ?it/s]Loading weights: 100%|██████████| 447/447 [00:00<00:00, 60667.03it/s]
-  25/270  (0.34s/clip)
-  50/270  (0.25s/clip)
-  75/270  (0.20s/clip)
-  100/270  (0.18s/clip)
-  125/270  (0.17s/clip)
-  150/270  (0.18s/clip)
-  175/270  (0.17s/clip)
-  200/270  (0.16s/clip)
-  225/270  (0.15s/clip)
-  250/270  (0.15s/clip)
-
-=== showcase complete: 270 clips in 38s -> /Users/adamsohn/Projects/car-diagnosis/proofs/showcase.jsonl ===
-
-by platform : {'youtube': 90, 'tiktok': 90, 'reddit': 90}
-by verdict  : {'fault': 132, 'uncertain': 56, 'normal': 82}
-by SITUATION:
-   whole_clip     124
-   isolated       63
-   clean_full     44
-   compilation    20
-   music_skipped  19
-SHOWCASE rc=0

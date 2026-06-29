@@ -35,6 +35,8 @@ it, is the point.
 - **[research/eval-methodology.md](research/eval-methodology.md)** — how we tell a
   real improvement from noise (grouped CV, permutation null, calibration), with
   literature citations.
-- **[PROOFS.md](PROOFS.md)** — the verification log: what is and isn't provable.
 - **[research/iteration-research.md](research/iteration-research.md)** — research
   notes behind the design choices.
+
+Verify it yourself end-to-end with `bash scripts/clone_verify.sh` (fresh worktree
+→ install → lint/type/test → train → diagnose).

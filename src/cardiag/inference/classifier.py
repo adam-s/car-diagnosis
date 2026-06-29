@@ -138,11 +138,27 @@ class Classifier:
             notes.append("fault/normal head was trained on a single class — verdict "
                          "is not meaningful (scrape both fault and normal clips).")
 
+        # --- engine knock probability (needed to gate the knock specialist below) -
+        knock_classes = set(getattr(self.heads["knock"], "classes_", []))
+        p_knock = 0.0
+        if "knock" in knock_classes:
+            kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
+            p_knock = float(kn.get("knock", 0.0))
+
         # --- where in the car (region) — the headline localization, OOS-robust --
+        # Coarse-to-fine cascade: a knock-sound is one label worn by many causes, so
+        # when a knock is likely we SOFT-blend in a region head trained only on knock
+        # clips (it localizes knocks better). Soft gating by p_knock, not a hard
+        # switch, so a shaky knock detector can't break the general path.
         regions: list[Region] = []
         region_head = self.heads.get("region")
         if region_head is not None and _usable(region_head):
             rp = _proba(region_head, X, self.temps.get("region", 1.0))
+            kr_head = self.heads.get("knock_region")
+            if p_knock > 0.0 and kr_head is not None and _usable(kr_head):
+                krp = _proba(kr_head, X, self.temps.get("knock_region", 1.0))
+                rp = {z: (1 - p_knock) * rp.get(z, 0.0) + p_knock * krp.get(z, 0.0)
+                      for z in set(rp) | set(krp)}     # gate: weight specialist by P(knock)
             regions = [Region(zone=z, p=round(float(p), 3))
                        for z, p in sorted(rp.items(), key=lambda kv: -kv[1])[:3]
                        if str(z).lower() not in _SENTINELS]
@@ -157,14 +173,9 @@ class Classifier:
             causes = []
             notes.append("cause head has too few classes to suggest a part.")
 
-        # --- engine knock (kept, but NOT the headline: it did not generalize on
-        # the out-of-sample verified set — 0.99 in-dist -> 0.56 OOS) ------------
-        knock_classes = set(getattr(self.heads["knock"], "classes_", []))
-        p_knock = 0.0
-        if "knock" in knock_classes:
-            kn = _proba(self.heads["knock"], X, self.temps.get("knock", 1.0))
-            p_knock = float(kn.get("knock", 0.0))
-
+        # (engine-knock probability p_knock is computed above, where it gates the
+        # knock-region specialist; it is reported but NOT the headline — the binary
+        # knock head did not generalize out-of-sample, 0.99 in-dist -> 0.56 OOS.)
         if res is not None and getattr(res, "is_music", False):
             notes.append("Recording looks like mostly music — diagnosis is unreliable.")
         elif res is not None and getattr(res, "is_empty", False):

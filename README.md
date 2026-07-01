@@ -20,7 +20,7 @@ audio won't support a call, it says "uncertain" instead of bluffing.
 
 Two pages visualize the first two stages of the pipeline:
 
-- [Separate](https://adamsohn.com/separate/) — an interactive look at the `clean()` cascade pulling a short mechanical span out of noisy YouTube audio (speech, music, road noise).
+- [Isolating the engine audio](https://adamsohn.com/separate/) — an interactive look at the `clean()` cascade pulling a short mechanical span out of noisy YouTube audio (speech, music, road noise).
 - [CLAP, visualized](https://adamsohn.com/clap/) — how the frozen CLAP model turns those spans into the 512-d embedding the linear heads classify.
 
 ## What it actually achieves

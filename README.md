@@ -16,6 +16,13 @@ audio won't support a call, it says "uncertain" instead of bluffing.
 > from crude phone audio (we hit the literature ceiling); the *same* method reaches
 > 0.93 AUROC on clean engine audio. See [docs/DEFENSE.md](docs/DEFENSE.md).
 
+## Interactive demos
+
+Two pages visualize the first two stages of the pipeline:
+
+- [Separate](https://adamsohn.com/separate/) — an interactive look at the `clean()` cascade pulling a short mechanical span out of noisy YouTube audio (speech, music, road noise).
+- [CLAP, visualized](https://adamsohn.com/clap/) — how the frozen CLAP model turns those spans into the 512-d embedding the linear heads classify.
+
 ## What it actually achieves
 
 Measured out-of-sample, leakage-safe (by-video grouped CV over 1,031 video groups;

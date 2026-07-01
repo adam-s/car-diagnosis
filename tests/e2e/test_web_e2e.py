@@ -68,7 +68,9 @@ def test_upload_and_render(server, clip, page):
     assert "cardiag" in page.title()
     # selecting a file triggers the streaming /api/diagnose/stream round-trip
     page.set_input_files("#file", clip)
-    # the diagnosis card becomes visible once the stream reaches its 'diagnosis' event
-    page.wait_for_selector("#diagnosis", state="visible", timeout=30_000)
+    # the diagnosis card becomes visible once the stream reaches its 'diagnosis' event.
+    # the UI plays events out with per-stage animation delays (see BEAT in index.html),
+    # so on a loaded CI runner reaching that final event can take well over 30s.
+    page.wait_for_selector("#diagnosis", state="visible", timeout=60_000)
     text = page.inner_text("#diagnosis")
     assert text.strip()  # a verdict, or "no model" when CLAP-free

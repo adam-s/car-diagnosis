@@ -5,7 +5,7 @@ YouTube/TikTok, cleans the audio (isolating the mechanical sound from speech, mu
 and noise), embeds it with a frozen CLAP model, and trains small linear heads to
 triage the fault. It is exposed as a CLI and a live web app.
 
-https://github.com/user-attachments/assets/2aae6e47-1920-4065-a41f-0276e36408b9
+https://github.com/user-attachments/assets/23dc48e7-5571-4890-9a6c-4552d907dd8a
 
 This is a proof of concept, and honest about what that means. Diagnosing a car fault
 from a phone recording is genuinely hard, so `cardiag` is built as a calibrated

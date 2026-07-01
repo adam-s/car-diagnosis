@@ -12,6 +12,7 @@ Events are ``(name, payload)`` tuples; the web layer serializes them as SSE.
 """
 from __future__ import annotations
 
+import logging
 import subprocess
 import time
 from collections.abc import Iterator
@@ -97,7 +98,11 @@ def acquire_url(url: str, dest_dir: Path, timeout: int = 180) -> tuple[Path, str
              "--postprocessor-args", f"-ar {config.SR_CLAP} -ac 1",
              "-o", str(out), "--", url],
             check=True, capture_output=True, timeout=timeout)
-    except subprocess.CalledProcessError:      # never echo yt-dlp stderr (SSRF exfil channel)
+    except subprocess.CalledProcessError as e:  # never echo yt-dlp stderr to the client (SSRF exfil channel)
+        # ...but do log it server-side so a local operator can see the real reason.
+        logging.getLogger("cardiag.web").warning(
+            "yt-dlp failed for %s:\n%s", url,
+            (e.stderr or b"").decode("utf-8", "replace").strip())
         raise ValueError("could not download audio from this link (too long, private, "
                          "or unavailable)") from None
     except subprocess.TimeoutExpired:

@@ -145,8 +145,8 @@ flowchart TD
     PREP --> CAUSES[training/prep/causes.py<br/>raw titles -> ~12 part families]
     CAUSES --> EMBED[embed.py<br/>frozen CLAP 512-d -> .npz]
     EMBED --> TRAIN[pipeline/build.py<br/>LogReg + StandardScaler heads:<br/>kind / knock / cause]
-    TRAIN --> CALIB[temperature scaling (Guo 2017)<br/>HIGH/MED/LOW/ABSTAIN]
-    CALIB --> EVAL[eval/*<br/>creator-grouped CV<br/>coverage @ precision, ECE]
+    TRAIN --> CALIB["temperature scaling (Guo 2017)<br/>HIGH/MED/LOW/ABSTAIN"]
+    CALIB --> EVAL["eval/*<br/>creator-grouped CV<br/>coverage @ precision, ECE"]
     CALIB --> MODEL[(best_model_clap.joblib)]
 ```
 

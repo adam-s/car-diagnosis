@@ -98,7 +98,7 @@ def acquire_url(url: str, dest_dir: Path, timeout: int = 180) -> tuple[Path, str
              "--postprocessor-args", f"-ar {config.SR_CLAP} -ac 1",
              "-o", str(out), "--", url],
             check=True, capture_output=True, timeout=timeout)
-    except subprocess.CalledProcessError as e:  # never echo yt-dlp stderr to the client (SSRF exfil channel)
+    except subprocess.CalledProcessError as e:  # never echo yt-dlp stderr (SSRF exfil channel)
         # ...but do log it server-side so a local operator can see the real reason.
         logging.getLogger("cardiag.web").warning(
             "yt-dlp failed for %s:\n%s", url,

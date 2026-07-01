@@ -66,8 +66,9 @@ def clip(tmp_path):
 def test_upload_and_render(server, clip, page):
     page.goto(server)
     assert "cardiag" in page.title()
+    # selecting a file triggers the streaming /api/diagnose/stream round-trip
     page.set_input_files("#file", clip)
-    # result card becomes visible after the /diagnose round-trip
-    page.wait_for_selector("#result", state="visible", timeout=30_000)
-    text = page.inner_text("#result")
-    assert text.strip()  # verdict or "Cleaning only (no model loaded)"
+    # the diagnosis card becomes visible once the stream reaches its 'diagnosis' event
+    page.wait_for_selector("#diagnosis", state="visible", timeout=30_000)
+    text = page.inner_text("#diagnosis")
+    assert text.strip()  # a verdict, or "no model" when CLAP-free

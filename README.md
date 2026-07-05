@@ -1,4 +1,16 @@
-# cardiag — diagnose a car fault from its sound
+<div align="center">
+  <h1>cardiag</h1>
+  <p><strong>Diagnose a car fault from its sound — a calibrated triage aid that says "uncertain" instead of bluffing</strong></p>
+
+  [![ci](https://github.com/adam-s/car-diagnosis/actions/workflows/ci.yml/badge.svg)](https://github.com/adam-s/car-diagnosis/actions/workflows/ci.yml)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB.svg?logo=python&logoColor=white)](pyproject.toml)
+  [![AUROC 0.79](https://img.shields.io/badge/fault_AUROC-0.79_·_calibrated-4c72b0.svg)](docs/MODEL_CARD.md)
+
+  [CLAP, step by step](https://adamsohn.com/clap/) · [Isolating the Engine Audio](https://adamsohn.com/separate/) · [Model Card](docs/MODEL_CARD.md) · [Defense](docs/DEFENSE.md)
+</div>
+
+---
 
 `cardiag` is an end-to-end audio-ML pipeline. It scrapes fault-sound clips from
 YouTube/TikTok, cleans the audio (isolating the mechanical sound from speech, music,
@@ -22,8 +34,8 @@ audio won't support a call, it says "uncertain" instead of bluffing.
 
 Two pages visualize the first two stages of the pipeline:
 
-- [Isolating the engine audio](https://adamsohn.com/separate/) — an interactive look at the `clean()` cascade pulling a short mechanical span out of noisy YouTube audio (speech, music, road noise).
-- [CLAP, visualized](https://adamsohn.com/clap/) — how the frozen CLAP model turns those spans into the 512-d embedding the linear heads classify.
+- [Isolating the Engine Audio](https://adamsohn.com/separate/) — an interactive look at the `clean()` cascade pulling a short mechanical span out of noisy YouTube audio (speech, music, road noise).
+- [CLAP, step by step](https://adamsohn.com/clap/) — how the frozen CLAP model turns those spans into the 512-d embedding the linear heads classify.
 
 ## What it actually achieves
 
